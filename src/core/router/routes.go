@@ -57,6 +57,7 @@ func setupAPIV1Routes(router fiber.Router) {
 	// User routes
 	userGroup.Get("/:id/profile", middleware.Protected(), users.GetUserDetails)
 	userGroup.Put("/:id/profile", middleware.Protected(), users.UpdateUserDetails)
+	userGroup.Post("/upload-profile-photo", middleware.Protected(), users.UploadProfilePhoto)
 
 	// // Feed routes
 	// feedGroup.Get("/", middleware.Protected(), feed.GetFeed)
