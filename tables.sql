@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 
 
+
 CREATE TABLE IF NOT EXISTS locations (
     id uuid PRIMARY KEY NOT NULL DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL

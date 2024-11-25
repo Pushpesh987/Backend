@@ -10,6 +10,7 @@ import (
 	// "Backend/src/middleware"         // Custom middleware
 	"Backend/src/core/middleware" // Authentication module
 	"Backend/src/modules/authentication"
+	"Backend/src/modules/posts"
 	"Backend/src/modules/users" // User module
 	// "Backend/src/modules/authentication"
 	// "your_project_name/src/modules/feed"       // Feed module
@@ -46,6 +47,7 @@ func setupAPIV1Routes(router fiber.Router) {
 	// Grouped API endpoints
 	authGroup := router.Group("/auth")
 	userGroup := router.Group("/users")
+	postGroup := router.Group("/posts")
 	// feedGroup := router.Group("/feed")
 	// messagesGroup := router.Group("/messages")
 
@@ -55,9 +57,14 @@ func setupAPIV1Routes(router fiber.Router) {
 	// authGroup.Post("/reset-password", middleware.Protected(), auth.ResetPassword)
 
 	// User routes
-	userGroup.Get("/:id/profile", middleware.Protected(), users.GetUserDetails)
-	userGroup.Put("/:id/profile", middleware.Protected(), users.UpdateUserDetails)
+	userGroup.Get("/profile", middleware.Protected(), users.GetProfile)
+	userGroup.Put("/Update-profile", middleware.Protected(), users.UpdateProfile)
+    userGroup.Post("/profile", middleware.Protected(), users.CreateProfile)
 	userGroup.Post("/upload-profile-photo", middleware.Protected(), users.UploadProfilePhoto)
+	userGroup.Post("/update-skill-interest", middleware.Protected(), users.UpdateUserSkillsAndInterests)
+
+
+	postGroup.Post("/post",middleware.Protected(),posts.CreatePost)
 
 	// // Feed routes
 	// feedGroup.Get("/", middleware.Protected(), feed.GetFeed)
