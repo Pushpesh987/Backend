@@ -10,6 +10,7 @@ import (
 	// "Backend/src/middleware"         // Custom middleware
 	"Backend/src/core/middleware" // Authentication module
 	"Backend/src/modules/authentication"
+	"Backend/src/modules/feed"
 	"Backend/src/modules/posts"
 	"Backend/src/modules/users" // User module
 	// "Backend/src/modules/authentication"
@@ -48,7 +49,7 @@ func setupAPIV1Routes(router fiber.Router) {
 	authGroup := router.Group("/auth")
 	userGroup := router.Group("/users")
 	postGroup := router.Group("/posts")
-	// feedGroup := router.Group("/feed")
+	feedGroup := router.Group("/feed")
 	// messagesGroup := router.Group("/messages")
 
 	// Authentication routes
@@ -67,7 +68,7 @@ func setupAPIV1Routes(router fiber.Router) {
 	postGroup.Post("/post",middleware.Protected(),posts.CreatePost)
 
 	// // Feed routes
-	// feedGroup.Get("/", middleware.Protected(), feed.GetFeed)
+	feedGroup.Get("/:user_id", middleware.Protected(), feed.GetFeed)
 	// feedGroup.Post("/", middleware.Protected(), feed.CreatePost)
 	// feedGroup.Delete("/:post_id", middleware.Protected(), feed.DeletePost)
 
