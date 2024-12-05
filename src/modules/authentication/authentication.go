@@ -1,16 +1,18 @@
 package authentication
 
 import (
-	"fmt"
 	"Backend/src/core/config"
 	"Backend/src/core/database"
 	"Backend/src/core/helpers"
 	"Backend/src/core/models"
-	"github.com/golang-jwt/jwt/v4"
-	"github.com/gofiber/fiber/v2"
-	"golang.org/x/crypto/bcrypt"
-	"github.com/google/uuid"
+	"fmt"
+	"log"
 	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // issueJwtToken generates a JWT token for authenticated users.
@@ -32,38 +34,40 @@ func issueJwtToken(userID string, firstName string, lastName string, email strin
 // SignUp handles user registration.
 func SignUp(c *fiber.Ctx) error {
 	db := database.DB
-	auth := new(models.Auth)
+	if db == nil {
+		log.Fatal("Database connection is not initialized")
+	}
 
-	// Parse request body for auth details
+	auth := new(models.Auth)
 	if err := c.BodyParser(auth); err != nil {
+		log.Printf("Error parsing body: %v\n", err)
 		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid input data", err)
 	}
 
-	// Validate required fields
 	if auth.Email == "" || auth.Password == "" || auth.Username == "" {
+		log.Println("Missing required fields: email, username, or password")
 		return helpers.HandleError(c, fiber.StatusBadRequest, "Email, username, and password are required", nil)
 	}
 
-	// Check for duplicate email or username
 	var existingAuth models.Auth
 	if err := db.Where("email = ?", auth.Email).Or("username = ?", auth.Username).First(&existingAuth).Error; err == nil {
+		log.Println("Email or username already exists")
 		return helpers.HandleError(c, fiber.StatusConflict, "Email or username already exists", nil)
 	}
 
-	// Hash the password using bcrypt
 	hashedPwd, err := bcrypt.GenerateFromPassword([]byte(auth.Password), bcrypt.DefaultCost)
 	if err != nil {
+		log.Printf("Error hashing password: %v\n", err)
 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to hash password", err)
 	}
 	auth.ID = uuid.New()
 	auth.Password = string(hashedPwd)
 
-	// Save the Auth record to the database
 	if result := db.Create(auth); result.Error != nil {
+		log.Printf("Error creating auth record: %v\n", result.Error)
 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to create account", result.Error)
 	}
 
-	// Create a minimal User record
 	user := models.User{
 		ID:        uuid.New(),
 		AuthID:    auth.ID,
@@ -74,8 +78,8 @@ func SignUp(c *fiber.Ctx) error {
 	}
 
 	if result := db.Create(&user); result.Error != nil {
-		// Roll back auth record if user creation fails
 		db.Delete(auth)
+		log.Printf("Error creating user record: %v\n", result.Error)
 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to create user record", result.Error)
 	}
 
@@ -84,6 +88,7 @@ func SignUp(c *fiber.Ctx) error {
 		"user_id": user.ID,
 	})
 }
+
 
 
 // SignIn handles user authentication.

@@ -66,9 +66,14 @@ func setupAPIV1Routes(router fiber.Router) {
 
 
 	postGroup.Post("/post",middleware.Protected(),posts.CreatePost)
+    postGroup.Post("/like",middleware.Protected(),posts.CreateLike)
+	postGroup.Post("/comment",middleware.Protected(),posts.CreateComment)
+	postGroup.Get("/:post_id/likes/count",middleware.Protected(),posts.GetLikesCount)
 
+	
+	
 	// // Feed routes
-	feedGroup.Get("/:user_id", middleware.Protected(), feed.GetFeed)
+	feedGroup.Get("/", middleware.Protected(), feed.FetchFeed)
 	// feedGroup.Post("/", middleware.Protected(), feed.CreatePost)
 	// feedGroup.Delete("/:post_id", middleware.Protected(), feed.DeletePost)
 

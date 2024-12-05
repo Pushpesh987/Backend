@@ -24,7 +24,6 @@ type Post struct {
 	MediaURL      string     `json:"media_url,omitempty"`
 	LikesCount    int        `json:"likes_count,omitempty"`
 	CommentsCount int        `json:"comments_count,omitempty"`
-	Tags          string  `json:"tags" gorm:"type:text[]"`
 	CreatedAt     time.Time  `json:"created_at" gorm:"default:CURRENT_TIMESTAMP"`
 	UpdatedAt     time.Time  `json:"updated_at" gorm:"default:CURRENT_TIMESTAMP"`
 }
