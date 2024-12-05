@@ -193,50 +193,57 @@ func getPredictedTags(content string) ([]string, error) {
 }
 
 func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
-	bucketName := "file-buckets"
-	apiURL := os.Getenv("STORAGE_URL") 
-	authToken := "Bearer " + os.Getenv("SERVICE_ROLE_SECRET")
+    bucketName := "file-buckets"
+    folderName := "posts" // Specify the folder name
+    apiURL := os.Getenv("STORAGE_URL") // Example: https://iczixyjklnvkhqamqaky.supabase.co/storage/v1
+    authToken := "Bearer " + os.Getenv("SERVICE_ROLE_SECRET")
 
-	if apiURL == "" {
-		return "", fmt.Errorf("STORAGE_URL is not set in the environment variables")
-	}
+    if apiURL == "" {
+        return "", fmt.Errorf("STORAGE_URL is not set in the environment variables")
+    }
 
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", fileName)
-	if err != nil {
-		return "", fmt.Errorf("failed to create multipart file: %w", err)
-	}
-	_, err = io.Copy(part, fileContent)
-	if err != nil {
-		return "", fmt.Errorf("failed to copy file content: %w", err)
-	}
-	writer.Close()
+    // Create multipart form data
+    body := &bytes.Buffer{}
+    writer := multipart.NewWriter(body)
+    part, err := writer.CreateFormFile("file", fileName)
+    if err != nil {
+        return "", fmt.Errorf("failed to create multipart file: %w", err)
+    }
+    _, err = io.Copy(part, fileContent)
+    if err != nil {
+        return "", fmt.Errorf("failed to copy file content: %w", err)
+    }
+    writer.Close()
 
-	requestURL := fmt.Sprintf("%s/object/%s/%s", apiURL, bucketName, fileName)
+    // Construct REST API URL for storage in the specified folder
+    objectPath := fmt.Sprintf("%s/%s", folderName, fileName)
+    requestURL := fmt.Sprintf("%s/object/%s/%s", apiURL, bucketName, objectPath)
 
-	req, err := http.NewRequest("POST", requestURL, body)
-	if err != nil {
-		return "", fmt.Errorf("failed to create HTTP request: %w", err)
-	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.Header.Set("Authorization", authToken)
+    // Make the HTTP request
+    req, err := http.NewRequest("POST", requestURL, body)
+    if err != nil {
+        return "", fmt.Errorf("failed to create HTTP request: %w", err)
+    }
+    req.Header.Set("Content-Type", writer.FormDataContentType())
+    req.Header.Set("Authorization", authToken)
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("HTTP request failed: %w", err)
-	}
-	defer resp.Body.Close()
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        return "", fmt.Errorf("HTTP request failed: %w", err)
+    }
+    defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		fmt.Println("Upload failed. Response Body:", string(respBody))
-		return "", fmt.Errorf("upload failed with status: %s", resp.Status)
-	}
+    // Check if upload succeeded
+    if resp.StatusCode != http.StatusOK {
+        respBody, _ := io.ReadAll(resp.Body)
+        fmt.Println("Upload failed. Response Body:", string(respBody))
+        return "", fmt.Errorf("upload failed with status: %s", resp.Status)
+    }
 
-	publicURL := fmt.Sprintf("%s/object/public/%s/%s", apiURL, bucketName, fileName)
-	return publicURL, nil
+    // Construct the public URL for the file in the folder
+    publicURL := fmt.Sprintf("%s/object/public/%s/%s", apiURL, bucketName, objectPath)
+    return publicURL, nil
 }
 
 func CreateComment(c *fiber.Ctx) error {
@@ -325,6 +332,68 @@ func CreateLike(c *fiber.Ctx) error {
 
 	return helpers.HandleSuccess(c, fiber.StatusCreated, "Like created successfully", nil)
 }
+
+func CreateShare(c *fiber.Ctx) error {
+	db := database.DB
+
+	// Parse request body
+	type Request struct {
+		PostID    string `json:"post_id" validate:"required,uuid"`
+		ToUserID  string `json:"to_user_id" validate:"required,uuid"`
+	}
+	var req Request
+	if err := c.BodyParser(&req); err != nil {
+		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid request payload", err)
+	}
+
+	// Validate if the post exists
+	var exists bool
+	if err := db.Raw("SELECT EXISTS (SELECT 1 FROM posts WHERE id = ?)", req.PostID).Scan(&exists).Error; err != nil || !exists {
+		return helpers.HandleError(c, fiber.StatusNotFound, "Post not found", err)
+	}
+
+	// Get the auth_id from the context (assuming it is set by middleware)
+	authID := c.Locals("user_id")
+	if authID == nil {
+		return helpers.HandleError(c, fiber.StatusUnauthorized, "User authentication failed: auth_id is missing", nil)
+	}
+
+	// Type assertion for auth_id
+	authIDStr, ok := authID.(string)
+	if !ok {
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "Invalid auth_id type", nil)
+	}
+	authIDParsed, err := uuid.Parse(authIDStr)
+	if err != nil {
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "Invalid auth_id format", err)
+	}
+
+	// Log the auth_id for debugging (optional)
+	fmt.Println("Auth ID:", authIDParsed)
+
+	// Query the users table to find the id where auth_id matches
+	var user models.User
+	if err := db.First(&user, "auth_id = ?", authIDParsed).Error; err != nil {
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "User not found", err)
+	}
+
+	// Log the fetched user details (optional)
+	fmt.Println("Fetched user details:", user)
+
+	// Insert share record
+	share := models.Share{
+		ID:         uuid.New(),
+		FromUserID: user.ID, // Use the id from the fetched user
+		ToUserID:   uuid.MustParse(req.ToUserID),
+		PostID:     uuid.MustParse(req.PostID),
+	}
+	if err := db.Create(&share).Error; err != nil {
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to share post", err)
+	}
+
+	return helpers.HandleSuccess(c, fiber.StatusCreated, "Post shared successfully", share)
+}
+
 func GetLikesCount(c *fiber.Ctx) error {
 	db := database.DB
 

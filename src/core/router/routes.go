@@ -10,6 +10,7 @@ import (
 	// "Backend/src/middleware"         // Custom middleware
 	"Backend/src/core/middleware" // Authentication module
 	"Backend/src/modules/authentication"
+	"Backend/src/modules/events"
 	"Backend/src/modules/feed"
 	"Backend/src/modules/posts"
 	"Backend/src/modules/users" // User module
@@ -50,6 +51,7 @@ func setupAPIV1Routes(router fiber.Router) {
 	userGroup := router.Group("/users")
 	postGroup := router.Group("/posts")
 	feedGroup := router.Group("/feed")
+	eventGroup:= router.Group("/events")
 	// messagesGroup := router.Group("/messages")
 
 	// Authentication routes
@@ -69,9 +71,19 @@ func setupAPIV1Routes(router fiber.Router) {
     postGroup.Post("/like",middleware.Protected(),posts.CreateLike)
 	postGroup.Post("/comment",middleware.Protected(),posts.CreateComment)
 	postGroup.Get("/:post_id/likes/count",middleware.Protected(),posts.GetLikesCount)
+	postGroup.Post("/share",middleware.Protected(),posts.CreateShare)
 
-	
-	
+	eventGroup.Post("/event",middleware.Protected(),events.CreateEvent)
+	eventGroup.Post("/workshop",middleware.Protected(),events.CreateWorkshop)
+	eventGroup.Post("/project",middleware.Protected(),events.CreateProject)
+	eventGroup.Get("/event/:id",middleware.Protected(),events.GetEventByID)
+	eventGroup.Get("/workshop/:id",middleware.Protected(),events.GetWorkshopByID)
+	eventGroup.Get("/project/:id",middleware.Protected(),events.GetProjectByID)
+	eventGroup.Get("/eventsfeed",middleware.Protected(),events.GetEventsFeed)
+	eventGroup.Get("/workshopsfeed",middleware.Protected(),events.GetWorkshopsFeed)
+	eventGroup.Get("/projectsfeed",middleware.Protected(),events.GetProjectsFeed)
+
+
 	// // Feed routes
 	feedGroup.Get("/", middleware.Protected(), feed.FetchFeed)
 	// feedGroup.Post("/", middleware.Protected(), feed.CreatePost)
