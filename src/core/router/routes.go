@@ -10,6 +10,7 @@ import (
 	// "Backend/src/middleware"         // Custom middleware
 	"Backend/src/core/middleware" // Authentication module
 	"Backend/src/modules/authentication"
+	connection "Backend/src/modules/connections"
 	"Backend/src/modules/events"
 	"Backend/src/modules/feed"
 	"Backend/src/modules/posts"
@@ -65,6 +66,8 @@ func setupAPIV1Routes(router fiber.Router) {
     userGroup.Post("/profile", middleware.Protected(), users.CreateProfile)
 	userGroup.Post("/upload-profile-photo", middleware.Protected(), users.UploadProfilePhoto)
 	userGroup.Post("/update-skill-interest", middleware.Protected(), users.UpdateUserSkillsAndInterests)
+    userGroup.Post("/follow",middleware.Protected(),connection.Follow)
+	userGroup.Post("/check-connection",middleware.Protected(),connection.ConnectionCheck)
 
 
 	postGroup.Post("/post",middleware.Protected(),posts.CreatePost)
