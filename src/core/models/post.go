@@ -16,7 +16,7 @@ func (ta *TextArray) Scan(value interface{}) error {
 func (ta TextArray) Value() (driver.Value, error) {
     return json.Marshal(ta)
 }
-// Post struct represents a post in the system
+
 type Post struct {
 	ID            uuid.UUID  `json:"id" gorm:"primaryKey;type:uuid;default:uuid_generate_v4()"`
 	UserID        uuid.UUID  `json:"user_id"`

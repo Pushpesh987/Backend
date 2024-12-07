@@ -3,40 +3,30 @@ package router
 import (
 	"fmt"
 	"sort"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
-
-	// "Backend/src/middleware"         // Custom middleware
-	"Backend/src/core/middleware" // Authentication module
+	"Backend/src/core/middleware" 
 	"Backend/src/modules/authentication"
 	connection "Backend/src/modules/connections"
 	"Backend/src/modules/events"
 	"Backend/src/modules/feed"
 	"Backend/src/modules/posts"
-	"Backend/src/modules/users" // User module
-	// "Backend/src/modules/authentication"
-	// "your_project_name/src/modules/feed"       // Feed module
-	// "your_project_name/src/modules/messages"   // Messaging module
+	"Backend/src/modules/users" 
+
 )
 
 func InitialiseAndSetupRoutes(app *fiber.App) {
-	// Root logger middleware for monitoring requests
 	root := app.Group("/", logger.New())
 
-	// Simple ping route for health checks
 	root.Get("/ping", func(c *fiber.Ctx) error { return c.SendString("pong") })
 
-	// API version grouping
 	apiV1 := root.Group("/api/v1")
 	setupAPIV1Routes(apiV1)
 
-	// Catch-all route for debugging load balancer traffic
 	root.Get("/:any", func(c *fiber.Ctx) error {
 		return c.SendString(c.Params("any"))
 	})
 
-	// Display all registered routes for debugging
 	routes := app.GetRoutes()
 	sort.Slice(routes, func(i, j int) bool {
 		return routes[i].Path < routes[j].Path

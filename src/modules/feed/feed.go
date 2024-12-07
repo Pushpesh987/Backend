@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strconv"
 	"time"
-
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
@@ -28,7 +27,6 @@ type FeedPost struct {
 }
 
 func FetchFeed(c *fiber.Ctx) error {
-	// Extract authenticated user ID
 	authID, ok := c.Locals("user_id").(string)
 	if !ok || authID == "" {
 		log.Println("Invalid or missing authID")
@@ -36,7 +34,6 @@ func FetchFeed(c *fiber.Ctx) error {
 	}
 	log.Printf("authID from JWT: %s\n", authID)
 
-	// Get user details
 	userID, err := GetUserIDFromAuthID(authID)
 	if err != nil {
 		log.Printf("Error fetching user: %v\n", err)
@@ -47,11 +44,9 @@ func FetchFeed(c *fiber.Ctx) error {
 	}
 	log.Printf("Fetched user ID: %s\n", userID)
 
-	// Parse pagination parameters
 	limit, offset := ParsePagination(c)
 	log.Printf("Pagination parameters - limit: %d, offset: %d\n", limit, offset)
 
-	// Fetch user connections
 	connections, err := GetUserConnections(userID)
 	if err != nil {
 		log.Printf("Error fetching user connections: %v\n", err)
@@ -59,7 +54,6 @@ func FetchFeed(c *fiber.Ctx) error {
 	}
 	log.Printf("Fetched connections: %v\n", connections)
 
-	// Fetch excluded post IDs (liked by user)
 	excludedPosts, err := GetLikedPostIDs(userID)
 	if err != nil {
 		log.Printf("Error fetching liked posts: %v\n", err)
@@ -67,7 +61,6 @@ func FetchFeed(c *fiber.Ctx) error {
 	}
 	log.Printf("Fetched excluded post IDs: %v\n", excludedPosts)
 
-	// Fetch posts from the database
 	posts, err := GetEnhancedFeedPosts(userID, connections, excludedPosts, limit, offset)
 	if err != nil {
 		log.Printf("Error fetching posts: %v\n", err)
@@ -75,15 +68,12 @@ func FetchFeed(c *fiber.Ctx) error {
 	}
 	log.Printf("Fetched %d posts: %+v\n", len(posts), posts)
 
-	// Enhance posts with popularity score and retrieve tags
 	feedPosts := CalculatePopularityAndRetrieveTags(posts)
 	log.Printf("Enhanced feed posts: %+v\n", feedPosts)
 
-	// Sort by popularity
 	SortByPopularity(feedPosts)
 	log.Printf("Sorted feed posts by popularity")
 
-	// Return the posts
 	return helpers.HandleSuccess(c, fiber.StatusOK, "Feed fetched successfully", feedPosts)
 }
 
@@ -140,7 +130,6 @@ func GetEnhancedFeedPosts(userID string, connections, excludedPosts []string, li
 
 	var posts []models.Post
 
-	// Step 1: Fetch tags used by the user in their posts
 	var userTags []string
 	if err := db.Table("post_tags").
 		Joins("JOIN tags ON post_tags.tag_id = tags.id").
@@ -150,7 +139,6 @@ func GetEnhancedFeedPosts(userID string, connections, excludedPosts []string, li
 		return nil, fmt.Errorf("failed to fetch user tags: %w", err)
 	}
 
-	// Step 2: Fetch the user's interests
 	var userInterests []string
 	if err := db.Table("user_interests").
 		Joins("JOIN interests ON user_interests.interest_id = interests.interest_id").
@@ -160,13 +148,10 @@ func GetEnhancedFeedPosts(userID string, connections, excludedPosts []string, li
 		return nil, fmt.Errorf("failed to fetch user interests: %w", err)
 	}
 
-	// Combine tags and interests for filtering
 	combinedTagsAndInterests := append(userTags, userInterests...)
 	log.Printf("combined tags abd interests: %v", combinedTagsAndInterests)
-	// Step 3: Fetch the most liked and most commented posts globally
 	var mostLikedPostIDs, mostCommentedPostIDs []string
 
-	// Query for most liked posts
 	if err := db.Table("likes").
 		Select("post_id").
 		Group("post_id").
@@ -176,7 +161,6 @@ func GetEnhancedFeedPosts(userID string, connections, excludedPosts []string, li
 		return nil, fmt.Errorf("failed to fetch most liked posts: %w", err)
 	}
 
-	// Query for most commented posts
 	if err := db.Table("comments").
 		Select("post_id").
 		Group("post_id").
@@ -188,7 +172,6 @@ func GetEnhancedFeedPosts(userID string, connections, excludedPosts []string, li
 
 	weightedPostIDs := append(mostLikedPostIDs, mostCommentedPostIDs...)
 
-	// Step 4: Query for posts from connections
 	query := db.Table("posts").
 		Where("user_id IN (?)", connections)
 
@@ -200,13 +183,12 @@ func GetEnhancedFeedPosts(userID string, connections, excludedPosts []string, li
 		Limit(limit).
 		Offset(offset)
 
-	// Execute the query for posts from connections
 	var connectionPosts []models.Post
 	if err := query.Find(&connectionPosts).Error; err != nil {
 		return nil, fmt.Errorf("failed to fetch posts from connections: %w", err)
 	}
 	log.Printf("len of combined tags %v", len(combinedTagsAndInterests))
-	// Step 5: Query for posts matching tags and interests
+
 	var tagsAndInterestsPosts []models.Post
 	if len(combinedTagsAndInterests) > 0 {
 		tagsAndInterestsQuery := db.Table("posts").
@@ -219,22 +201,18 @@ func GetEnhancedFeedPosts(userID string, connections, excludedPosts []string, li
 			Order("created_at DESC").
 			Limit(limit).
 			Offset(offset)
-			// Use the ToSQL method to get the raw SQL query as a string
 		sqlQuery := db.ToSQL(func(tx *gorm.DB) *gorm.DB {
 			return tagsAndInterestsQuery
 		})
 
-		// Print the SQL query
 		fmt.Printf("Generated SQL Query: %s\n", sqlQuery)
 
-		// Execute the query for posts matching tags only
 		if err := tagsAndInterestsQuery.Find(&tagsAndInterestsPosts).Error; err != nil {
 			return nil, fmt.Errorf("failed to fetch posts matching tags: %w", err)
 		}
 	}
 
 	log.Printf("tags abnd interest posts : %v", tagsAndInterestsPosts)
-	// Step 6: Query for most liked and commented posts
 	var weightedPosts []models.Post
 	if len(weightedPostIDs) > 0 {
 		weightedQuery := db.Table("posts").
@@ -248,25 +226,20 @@ func GetEnhancedFeedPosts(userID string, connections, excludedPosts []string, li
 		}
 	}
 
-	// Step 7: Combine results from connections, tags/interests, and weighted posts
 	posts = append(posts, connectionPosts...)
 	posts = append(posts, tagsAndInterestsPosts...)
 	posts = append(posts, weightedPosts...)
-
-	// Deduplicate posts (optional)
 	posts = deduplicatePosts(posts)
-
 	log.Printf("Retrieved filtered posts: %+v\n", posts)
 	return posts, nil
 }
 
-// deduplicatePosts removes duplicate posts from the slice.
 func deduplicatePosts(posts []models.Post) []models.Post {
 	seen := make(map[string]bool)
 	uniquePosts := []models.Post{}
 
 	for _, post := range posts {
-		idStr := post.ID.String() // Convert uuid.UUID to string
+		idStr := post.ID.String()
 		if !seen[idStr] {
 			seen[idStr] = true
 			uniquePosts = append(uniquePosts, post)
@@ -331,14 +304,12 @@ func CalculateScore(likes, comments int, createdAt time.Time) float64 {
 	return score
 }
 
-// SortByPopularity sorts posts based on their popularity scores.
 func SortByPopularity(posts []FeedPost) {
 	sort.Slice(posts, func(i, j int) bool {
 		return posts[i].PopularityScore > posts[j].PopularityScore
 	})
 }
 
-// ParsePagination extracts and validates pagination parameters.
 func ParsePagination(c *fiber.Ctx) (int, int) {
 	limit, err := strconv.Atoi(c.Query("limit", "10"))
 	if err != nil || limit <= 0 {

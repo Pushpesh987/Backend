@@ -18,11 +18,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
-// func formatTagsForPostgres(tags []string) string {
-// 	return fmt.Sprintf("{%s}", strings.Join(tags, ","))
-// }
-
 func CreatePost(c *fiber.Ctx) error {
     db := database.DB
 
@@ -80,7 +75,6 @@ func CreatePost(c *fiber.Ctx) error {
         return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to predict tags", err)
     }
 
-    // Create the post
     post := models.Post{
         UserID:        userID,
         Content:       content,
@@ -93,27 +87,23 @@ func CreatePost(c *fiber.Ctx) error {
         return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to create post", err)
     }
 
-    // Insert tags into the post_tags table
     var postTags []models.PostTag
 for _, tag := range tags {
     var tagID int
-    // Check if the tag already exists and retrieve its ID
+
     err := db.Table("tags").Where("tag = ?", tag).Select("id").Scan(&tagID).Error
     if err != nil {
         log.Printf("Error finding tag ID for tag %s: %v\n", tag, err)
         return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to find tag ID", err)
     }
 
-    // If the tag does not exist, insert it and get the new ID
     if tagID == 0 {
-        // Insert the tag into the tags table
         err := db.Table("tags").Create(&models.Tag{Tag: tag}).Error
         if err != nil {
             log.Printf("Error inserting tag %s: %v\n", tag, err)
             return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to insert tag", err)
         }
 
-        // Retrieve the ID of the newly inserted tag
         err = db.Table("tags").Where("tag = ?", tag).Select("id").Scan(&tagID).Error
         if err != nil {
             log.Printf("Error finding new tag ID for tag %s: %v\n", tag, err)
@@ -121,7 +111,6 @@ for _, tag := range tags {
         }
     }
 
-    // Check if the post_tag combination already exists
     var exists bool
     err = db.Table("post_tags").
         Select("exists (select 1 from post_tags where post_id = ? and tag_id = ?)", post.ID, tagID).
@@ -132,7 +121,7 @@ for _, tag := range tags {
     }
 
     if !exists {
-        // Append to postTags if combination doesn't already exist
+       
         postTags = append(postTags, models.PostTag{
             PostID: post.ID,
             TagID:  tagID,
@@ -142,7 +131,6 @@ for _, tag := range tags {
     }
 }
 
-// Insert all post tags if there are new ones
 if len(postTags) > 0 {
     if err := db.Table("post_tags").Create(&postTags).Error; err != nil {
         log.Printf("Error creating post tags: %v\n", err)
@@ -160,7 +148,7 @@ func getPredictedTags(content string) ([]string, error) {
 		log.Println("Content is empty; cannot predict tags.")
 		return nil, fmt.Errorf("content cannot be empty for tag prediction")
 	}
-	modelURL := "https://ml-models-1rr1.onrender.com/predict" // Update with actual endpoint
+	modelURL := "https://ml-models-1rr1.onrender.com/predict" 
 	requestData := map[string]string{"content": content}
 	requestBody, err := json.Marshal(requestData)
 	if err != nil {
@@ -194,15 +182,14 @@ func getPredictedTags(content string) ([]string, error) {
 
 func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
     bucketName := "file-buckets"
-    folderName := "posts" // Specify the folder name
-    apiURL := os.Getenv("STORAGE_URL") // Example: https://iczixyjklnvkhqamqaky.supabase.co/storage/v1
+    folderName := "posts" 
+    apiURL := os.Getenv("STORAGE_URL") 
     authToken := "Bearer " + os.Getenv("SERVICE_ROLE_SECRET")
 
     if apiURL == "" {
         return "", fmt.Errorf("STORAGE_URL is not set in the environment variables")
     }
 
-    // Create multipart form data
     body := &bytes.Buffer{}
     writer := multipart.NewWriter(body)
     part, err := writer.CreateFormFile("file", fileName)
@@ -215,11 +202,9 @@ func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
     }
     writer.Close()
 
-    // Construct REST API URL for storage in the specified folder
     objectPath := fmt.Sprintf("%s/%s", folderName, fileName)
     requestURL := fmt.Sprintf("%s/object/%s/%s", apiURL, bucketName, objectPath)
 
-    // Make the HTTP request
     req, err := http.NewRequest("POST", requestURL, body)
     if err != nil {
         return "", fmt.Errorf("failed to create HTTP request: %w", err)
@@ -234,14 +219,12 @@ func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
     }
     defer resp.Body.Close()
 
-    // Check if upload succeeded
     if resp.StatusCode != http.StatusOK {
         respBody, _ := io.ReadAll(resp.Body)
         fmt.Println("Upload failed. Response Body:", string(respBody))
         return "", fmt.Errorf("upload failed with status: %s", resp.Status)
     }
 
-    // Construct the public URL for the file in the folder
     publicURL := fmt.Sprintf("%s/object/public/%s/%s", apiURL, bucketName, objectPath)
     return publicURL, nil
 }
@@ -249,19 +232,16 @@ func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
 func CreateComment(c *fiber.Ctx) error {
 	db := database.DB
 
-	// Extract auth_id from JWT
-	authID, ok := c.Locals("user_id").(string) // `user_id` here is actually `auth_id`
+	authID, ok := c.Locals("user_id").(string) 
 	if !ok || authID == "" {
 		return helpers.HandleError(c, fiber.StatusUnauthorized, "Unauthorized: missing auth_id", nil)
 	}
 
-	// Map auth_id to user_id
 	var userID string
 	if err := db.Raw("SELECT id FROM users WHERE auth_id = ?", authID).Scan(&userID).Error; err != nil || userID == "" {
 		return helpers.HandleError(c, fiber.StatusNotFound, "User not found", err)
 	}
 
-	// Parse request body
 	type Request struct {
 		PostID  string `json:"post_id" validate:"required,uuid"`
 		Content string `json:"content" validate:"required"`
@@ -271,16 +251,14 @@ func CreateComment(c *fiber.Ctx) error {
 		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid request payload", err)
 	}
 
-	// Validate post existence
 	var postExists bool
 	if err := db.Raw("SELECT EXISTS (SELECT 1 FROM posts WHERE id = ?)", req.PostID).Scan(&postExists).Error; err != nil || !postExists {
 		return helpers.HandleError(c, fiber.StatusNotFound, "Post not found", err)
 	}
 
-	// Insert comment
 	comment := models.Comment{
 		ID:      uuid.New(),
-		UserID:  uuid.MustParse(userID), // Use resolved user_id
+		UserID:  uuid.MustParse(userID), 
 		PostID:  uuid.MustParse(req.PostID),
 		Content: req.Content,
 	}
@@ -290,23 +268,20 @@ func CreateComment(c *fiber.Ctx) error {
 
 	return helpers.HandleSuccess(c, fiber.StatusCreated, "Comment created successfully", comment)
 }
-// CreateLike creates a like for a specific post
+
 func CreateLike(c *fiber.Ctx) error {
 	db := database.DB
 
-	// Parse auth_id from JWT (assumes JWT middleware sets this)
-	authID, ok := c.Locals("user_id").(string) // `user_id` here is actually `auth_id`
+	authID, ok := c.Locals("user_id").(string) 
 	if !ok || authID == "" {
 		return helpers.HandleError(c, fiber.StatusUnauthorized, "Unauthorized: missing auth_id", nil)
 	}
 
-	// Map auth_id to user_id
 	var userID string
 	if err := db.Raw("SELECT id FROM users WHERE auth_id = ?", authID).Scan(&userID).Error; err != nil || userID == "" {
 		return helpers.HandleError(c, fiber.StatusNotFound, "User not found", err)
 	}
 
-	// Parse request body
 	type Request struct {
 		PostID string `json:"post_id" validate:"required,uuid"`
 	}
@@ -315,13 +290,11 @@ func CreateLike(c *fiber.Ctx) error {
 		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid request payload", err)
 	}
 
-	// Validate post existence
 	var postExists bool
 	if err := db.Raw("SELECT EXISTS (SELECT 1 FROM posts WHERE id = ?)", req.PostID).Scan(&postExists).Error; err != nil || !postExists {
 		return helpers.HandleError(c, fiber.StatusNotFound, "Post not found", err)
 	}
 
-	// Insert like
 	like := models.Like{
 		UserID: uuid.MustParse(userID),
 		PostID: uuid.MustParse(req.PostID),
@@ -336,7 +309,6 @@ func CreateLike(c *fiber.Ctx) error {
 func CreateShare(c *fiber.Ctx) error {
 	db := database.DB
 
-	// Parse request body
 	type Request struct {
 		PostID    string `json:"post_id" validate:"required,uuid"`
 		ToUserID  string `json:"to_user_id" validate:"required,uuid"`
@@ -346,19 +318,16 @@ func CreateShare(c *fiber.Ctx) error {
 		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid request payload", err)
 	}
 
-	// Validate if the post exists
 	var exists bool
 	if err := db.Raw("SELECT EXISTS (SELECT 1 FROM posts WHERE id = ?)", req.PostID).Scan(&exists).Error; err != nil || !exists {
 		return helpers.HandleError(c, fiber.StatusNotFound, "Post not found", err)
 	}
 
-	// Get the auth_id from the context (assuming it is set by middleware)
 	authID := c.Locals("user_id")
 	if authID == nil {
 		return helpers.HandleError(c, fiber.StatusUnauthorized, "User authentication failed: auth_id is missing", nil)
 	}
 
-	// Type assertion for auth_id
 	authIDStr, ok := authID.(string)
 	if !ok {
 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Invalid auth_id type", nil)
@@ -368,22 +337,18 @@ func CreateShare(c *fiber.Ctx) error {
 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Invalid auth_id format", err)
 	}
 
-	// Log the auth_id for debugging (optional)
 	fmt.Println("Auth ID:", authIDParsed)
 
-	// Query the users table to find the id where auth_id matches
 	var user models.User
 	if err := db.First(&user, "auth_id = ?", authIDParsed).Error; err != nil {
 		return helpers.HandleError(c, fiber.StatusInternalServerError, "User not found", err)
 	}
 
-	// Log the fetched user details (optional)
 	fmt.Println("Fetched user details:", user)
 
-	// Insert share record
 	share := models.Share{
 		ID:         uuid.New(),
-		FromUserID: user.ID, // Use the id from the fetched user
+		FromUserID: user.ID, 
 		ToUserID:   uuid.MustParse(req.ToUserID),
 		PostID:     uuid.MustParse(req.PostID),
 	}
@@ -397,25 +362,21 @@ func CreateShare(c *fiber.Ctx) error {
 func GetLikesCount(c *fiber.Ctx) error {
 	db := database.DB
 
-	// Parse post_id from URL parameters
 	postID := c.Params("post_id")
 	if postID == "" {
 		return helpers.HandleError(c, fiber.StatusBadRequest, "Missing post ID", nil)
 	}
 
-	// Validate the post existence
 	var postExists bool
 	if err := db.Raw("SELECT EXISTS (SELECT 1 FROM posts WHERE id = ?)", postID).Scan(&postExists).Error; err != nil || !postExists {
 		return helpers.HandleError(c, fiber.StatusNotFound, "Post not found", err)
 	}
 
-	// Count the number of likes for the post
 	var likesCount int64
 	if err := db.Raw("SELECT COUNT(*) FROM likes WHERE post_id = ?", postID).Scan(&likesCount).Error; err != nil {
 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to retrieve likes count", err)
 	}
 
-	// Return the likes count
 	response := map[string]interface{}{
 		"post_id":     postID,
 		"likes_count": likesCount,

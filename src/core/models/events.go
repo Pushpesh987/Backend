@@ -2,11 +2,8 @@ package models
 
 import (
 	"time"
-
 	"github.com/google/uuid"
 )
-
-// Event represents an event entity.
 type Event struct {
 	ID                 uuid.UUID `json:"id" gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
 	UserID             uuid.UUID `json:"user_id" gorm:"type:uuid"`
@@ -25,8 +22,6 @@ type Event struct {
 	AttendeeCount      int       `json:"attendee_count" gorm:"type:int"`
 	Status             string    `json:"status" gorm:"type:varchar(20);not null"`
 }
-
-// Workshop represents a workshop entity.
 type Workshop struct {
 	ID               uuid.UUID `json:"id" gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
 	UserID           uuid.UUID `json:"user_id" gorm:"type:uuid"`
@@ -43,8 +38,6 @@ type Workshop struct {
 	Status           string    `json:"status" gorm:"type:varchar(20);not null"`
 	RegistrationLink string    `json:"registration_link" gorm:"type:varchar(255)"`
 }
-
-// Project represents a project entity.
 type Project struct {
 	ID          uuid.UUID `json:"id" gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
 	UserID      uuid.UUID `json:"user_id" gorm:"type:uuid"`

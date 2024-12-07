@@ -8,14 +8,12 @@ import (
 	"fmt"
 	"log"
 	"time"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// issueJwtToken generates a JWT token for authenticated users.
 func issueJwtToken(userID string, firstName string, lastName string, email string) (string, error) {
 	token := jwt.New(jwt.SigningMethodHS256)
 	claims := token.Claims.(jwt.MapClaims)
@@ -31,7 +29,6 @@ func issueJwtToken(userID string, firstName string, lastName string, email strin
 	return token.SignedString([]byte(secretKey))
 }
 
-// SignUp handles user registration.
 func SignUp(c *fiber.Ctx) error {
 	db := database.DB
 	if db == nil {
@@ -89,46 +86,36 @@ func SignUp(c *fiber.Ctx) error {
 	})
 }
 
-
-
-// SignIn handles user authentication.
 func SignIn(c *fiber.Ctx) error {
     db := database.DB
     auth := new(models.Auth)
     fetchedUser := new(models.Auth)
 
-    // Parse request body to get email and password
     if err := c.BodyParser(auth); err != nil {
         return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid input data", err)
     }
 
-    // Debug: Log the email being fetched
     fmt.Println("Attempting to fetch user by email:", auth.Email)
 
-    // Fetch user by email
     result := db.Where("email = ?", auth.Email).First(&fetchedUser)
     if result.Error != nil {
-        fmt.Println("Error fetching user:", result.Error) // Debug error
+        fmt.Println("Error fetching user:", result.Error)
         return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid email credentials", result.Error)
     }
 
-    // Debug: Print password details
     fmt.Println("Plain password entered:", auth.Password)
     fmt.Println("Stored hashed password:", fetchedUser.Password)
 
-    // Compare provided password with hashed password
     if err := bcrypt.CompareHashAndPassword([]byte(fetchedUser.Password), []byte(auth.Password)); err != nil {
-        fmt.Println("Password mismatch:", err) // Debug error
+        fmt.Println("Password mismatch:", err) 
         return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid password credentials", err)
     }
 
-    // Generate JWT token on successful authentication
     token, err := issueJwtToken(fetchedUser.ID.String(), "", "", fetchedUser.Email)
     if err != nil {
         return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to generate token", err)
     }
 
-    // Return success response with the token
     return helpers.HandleSuccess(c, fiber.StatusOK, "Sign-in successful", fiber.Map{"token": token})
 }
 
