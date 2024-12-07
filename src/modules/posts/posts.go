@@ -160,7 +160,7 @@ func getPredictedTags(content string) ([]string, error) {
 		log.Println("Content is empty; cannot predict tags.")
 		return nil, fmt.Errorf("content cannot be empty for tag prediction")
 	}
-	modelURL := "http://localhost:5000/predict" // Update with actual endpoint
+	modelURL := "https://ml-models-1rr1.onrender.com/predict" // Update with actual endpoint
 	requestData := map[string]string{"content": content}
 	requestBody, err := json.Marshal(requestData)
 	if err != nil {
