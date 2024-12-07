@@ -32,7 +32,15 @@ func main() {
 	// Set up routes
 	router.InitialiseAndSetupRoutes(app)
 
-	// Get port from config and start the server
-	port := config.Config("APP_PORT")
+	// Get port from environment variable, default to 3000
+	port := config.Config("PORT") // Render provides this
+	if port == "" {
+		port = config.Config("APP_PORT") // Use APP_PORT if locally testing
+		if port == "" {
+			port = "3000" // Default fallback
+		}
+	}
+
+	log.Printf("Starting server on port %s...", port)
 	log.Fatal(app.Listen(fmt.Sprintf(":%s", port)))
 }
