@@ -34,12 +34,17 @@ func main() {
 
 	// Get port from environment variable, default to 3000
 	port := config.Config("PORT") // Render provides this
-	if port == "" {
-		port = config.Config("APP_PORT") // Use APP_PORT if locally testing
 		if port == "" {
 			port = "3000" // Default fallback
 		}
-	}
+
+	// port := config.Config("PORT") // Render provides this
+	// if port == "" {
+	// 	port = config.Config("APP_PORT") // Use APP_PORT if locally testing
+	// 	if port == "" {
+	// 		port = "3000" // Default fallback
+	// 	}
+	// }
 
 	log.Printf("Starting server on port %s...", port)
 	log.Fatal(app.Listen(fmt.Sprintf(":%s", port)))
