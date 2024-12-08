@@ -3,15 +3,15 @@ package database
 import (
 	"fmt"
 	"log"
-	"time"
 	"strconv"
+	"time"
 
 	"Backend/src/core/config"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/schema"
 	"gorm.io/gorm/logger"
+	"gorm.io/gorm/schema"
 )
 
 var DB *gorm.DB
@@ -58,14 +58,14 @@ func ConnectDB() {
 	}
 
 	// Setting up connection pooling
-	sqlDB, err := DB.DB()  // Use the same 'err' variable
+	sqlDB, err := DB.DB() // Use the same 'err' variable
 	if err != nil {
 		log.Fatalf("Error setting up database connection pool: %v", err)
 	}
 
 	// Pool settings: Adjust these values based on your app's expected workload
-	sqlDB.SetMaxIdleConns(10)               // Allow up to 10 idle connections
-	sqlDB.SetMaxOpenConns(50)               // Allow up to 50 open connections
+	sqlDB.SetMaxIdleConns(10)                  // Allow up to 10 idle connections
+	sqlDB.SetMaxOpenConns(50)                  // Allow up to 50 open connections
 	sqlDB.SetConnMaxLifetime(15 * time.Minute) // Limit connection reuse to 15 minutes
 	sqlDB.SetConnMaxIdleTime(5 * time.Minute)  // Limit idle connection time to 5 minutes
 

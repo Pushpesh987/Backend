@@ -6,21 +6,20 @@ import (
 	"Backend/src/core/helpers"
 	"Backend/src/core/models"
 	"fmt"
-	"log"
-	"time"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"log"
+	"time"
 )
 
-func issueJwtToken(userID string, firstName string, lastName string, email string) (string, error) {
+func issueJwtToken(authID string, userID string, email string) (string, error) {
 	token := jwt.New(jwt.SigningMethodHS256)
 	claims := token.Claims.(jwt.MapClaims)
 
-	claims["sub"] = userID
-	claims["first_name"] = firstName
-	claims["last_name"] = lastName
+	claims["sub"] = authID
+	claims["user_id"] = userID
 	claims["email"] = email
 	claims["iat"] = time.Now().Unix()
 	claims["exp"] = time.Now().Add(30 * 24 * time.Hour).Unix()
@@ -87,41 +86,41 @@ func SignUp(c *fiber.Ctx) error {
 }
 
 func SignIn(c *fiber.Ctx) error {
-    db := database.DB
-    auth := new(models.Auth)
-    fetchedUser := new(models.Auth)
+	db := database.DB
+	auth := new(models.Auth)
+	fetchedUser := new(models.Auth)
 
-    if err := c.BodyParser(auth); err != nil {
-        return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid input data", err)
-    }
+	if err := c.BodyParser(auth); err != nil {
+		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid input data", err)
+	}
 
-    fmt.Println("Attempting to fetch user by email:", auth.Email)
+	if auth.Email == "" || auth.Password == "" {
+		return helpers.HandleError(c, fiber.StatusBadRequest, "Email and password are required", nil)
+	}
 
-    result := db.Where("email = ?", auth.Email).First(&fetchedUser)
-    if result.Error != nil {
-        fmt.Println("Error fetching user:", result.Error)
-        return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid email credentials", result.Error)
-    }
+	fmt.Println("Attempting to fetch user by email:", auth.Email)
 
-    fmt.Println("Plain password entered:", auth.Password)
-    fmt.Println("Stored hashed password:", fetchedUser.Password)
+	result := db.Where("email = ?", auth.Email).First(&fetchedUser)
+	if result.Error != nil {
+		fmt.Println("Error fetching user:", result.Error)
+		return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid email credentials", nil)
+	}
 
-    if err := bcrypt.CompareHashAndPassword([]byte(fetchedUser.Password), []byte(auth.Password)); err != nil {
-        fmt.Println("Password mismatch:", err) 
-        return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid password credentials", err)
-    }
+	if err := bcrypt.CompareHashAndPassword([]byte(fetchedUser.Password), []byte(auth.Password)); err != nil {
+		fmt.Println("Password mismatch:", err)
+		return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid password credentials", nil)
+	}
 
-    token, err := issueJwtToken(fetchedUser.ID.String(), "", "", fetchedUser.Email)
-    if err != nil {
-        return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to generate token", err)
-    }
+	user := new(models.User)
+	if err := db.Where("auth_id = ?", fetchedUser.ID).First(&user).Error; err != nil {
+		fmt.Println("Error fetching user:", err)
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch user details", err)
+	}
 
-    return helpers.HandleSuccess(c, fiber.StatusOK, "Sign-in successful", fiber.Map{"token": token})
+	token, err := issueJwtToken(fetchedUser.ID.String(), user.ID.String(), fetchedUser.Email)
+	if err != nil {
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to generate token", err)
+	}
+
+	return helpers.HandleSuccess(c, fiber.StatusOK, "Sign-in successful", fiber.Map{"token": token})
 }
-
-
-
-
-
-
-

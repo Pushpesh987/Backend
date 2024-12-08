@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 )
+
 type Connection struct {
 	ID           int       `gorm:"column:id;type:int;primaryKey;autoIncrement" json:"id"`
 	UserID       uuid.UUID `gorm:"column:user_id;type:uuid;not null" json:"user_id"`
@@ -15,4 +16,3 @@ type Connection struct {
 func (Connection) TableName() string {
 	return "connections"
 }
-
