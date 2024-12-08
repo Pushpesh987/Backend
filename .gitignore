@@ -1,0 +1,6 @@
+.env*
+tmp
+*.json
+bandobast-backend
+*.csv
+scratch-files/*

@@ -6,12 +6,12 @@ import (
 	"Backend/src/core/models"
 	"errors"
 	"fmt"
+	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 	"log"
 	"sort"
 	"strconv"
 	"time"
-	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
 )
 
 type FeedPost struct {
