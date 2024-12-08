@@ -218,6 +218,7 @@ CREATE TABLE IF NOT EXISTS users (
     field_of_study_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
     college_name_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
     auth_id UUID REFERENCES auth(id),
+    for_first_time BOOLEAN DEFAULT TRUE
     CONSTRAINT fk_location FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL,
     CONSTRAINT fk_education_level FOREIGN KEY (education_level_id) REFERENCES education_levels(id) ON DELETE SET NULL,
     CONSTRAINT fk_field_of_study FOREIGN KEY (field_of_study_id) REFERENCES fields_of_study(id) ON DELETE SET NULL,

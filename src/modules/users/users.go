@@ -18,12 +18,9 @@ import (
 
 func GetProfile(c *fiber.Ctx) error {
 	db := database.DB
-	authID := c.Locals("user_id").(string)
-
-	var userID string
-	if err := db.Raw("SELECT id FROM users WHERE auth_id = ?", authID).Scan(&userID).Error; err != nil {
-		return helpers.HandleError(c, fiber.StatusNotFound, "User not found", err)
-	}
+	userID := c.Locals("user_id").(string)
+    fmt.Printf(" fetched user_id from jwt : %v",userID)
+	
 
 	profileQuery := `SELECT u.*, 
                             COALESCE(l.name, '') AS location_name, 
@@ -78,17 +75,7 @@ func GetProfile(c *fiber.Ctx) error {
 
 func CreateProfile(c *fiber.Ctx) error {
 	db := database.DB
-	authID := c.Locals("user_id").(string)
-
-	var user struct {
-		ID string `gorm:"column:id"`
-	}
-	if err := db.Table("users").Where("auth_id = ?", authID).Select("id").First(&user).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return helpers.HandleError(c, fiber.StatusNotFound, "User not found", err)
-		}
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch user", err)
-	}
+	userID := c.Locals("user_id").(string)
 
 	body := new(models.User)
 	if err := c.BodyParser(body); err != nil {
@@ -153,7 +140,7 @@ func CreateProfile(c *fiber.Ctx) error {
 		"college_name_id":    collegeNameID,
 	}
 
-	if result := db.Table("users").Where("id = ?", user.ID).Updates(profileData); result.Error != nil {
+	if result := db.Table("users").Where("id = ?", userID).Updates(profileData); result.Error != nil {
 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update profile", result.Error)
 	}
 
@@ -312,6 +299,7 @@ func UploadProfilePhoto(c *fiber.Ctx) error {
 
 func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
 	bucketName := "file-buckets"
+	folderName := "profile-photos"
 	apiURL := os.Getenv("STORAGE_URL")
 	authToken := "Bearer " + os.Getenv("SERVICE_ROLE_SECRET")
 
@@ -331,7 +319,8 @@ func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
 	}
 	writer.Close()
 
-	requestURL := fmt.Sprintf("%s/object/%s/%s", apiURL, bucketName, fileName)
+	objectPath := fmt.Sprintf("%s/%s", folderName, fileName)
+	requestURL := fmt.Sprintf("%s/object/%s/%s", apiURL, bucketName, objectPath)
 
 	req, err := http.NewRequest("POST", requestURL, body)
 	if err != nil {
@@ -353,7 +342,7 @@ func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
 		return "", fmt.Errorf("upload failed with status: %s", resp.Status)
 	}
 
-	publicURL := fmt.Sprintf("%s/object/public/%s/%s", apiURL, bucketName, fileName)
+	publicURL := fmt.Sprintf("%s/object/public/%s/%s", apiURL, bucketName, objectPath)
 	return publicURL, nil
 }
 

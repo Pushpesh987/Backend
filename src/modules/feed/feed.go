@@ -6,12 +6,14 @@ import (
 	"Backend/src/core/models"
 	"errors"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
 	"log"
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type FeedPost struct {
@@ -27,14 +29,14 @@ type FeedPost struct {
 }
 
 func FetchFeed(c *fiber.Ctx) error {
-	authID, ok := c.Locals("user_id").(string)
-	if !ok || authID == "" {
-		log.Println("Invalid or missing authID")
+	userId, ok := c.Locals("user_id").(string)
+	if !ok || userId == "" {
+		log.Println("Invalid or missing userID")
 		return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid or missing auth_id", nil)
 	}
-	log.Printf("authID from JWT: %s\n", authID)
+	log.Printf("userID from JWT: %s\n", userId)
 
-	userID, err := GetUserIDFromAuthID(authID)
+	userID, err := uuid.Parse(userId)
 	if err != nil {
 		log.Printf("Error fetching user: %v\n", err)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -77,20 +79,7 @@ func FetchFeed(c *fiber.Ctx) error {
 	return helpers.HandleSuccess(c, fiber.StatusOK, "Feed fetched successfully", feedPosts)
 }
 
-func GetUserIDFromAuthID(authID string) (string, error) {
-	db := database.DB
-	var user struct {
-		ID string `gorm:"column:id"`
-	}
-	log.Printf("Querying user ID for authID: %s\n", authID)
-	if err := db.Table("users").Where("auth_id = ?", authID).Select("id").First(&user).Error; err != nil {
-		return "", err
-	}
-	log.Printf("Retrieved user ID: %s\n", user.ID)
-	return user.ID, nil
-}
-
-func GetUserConnections(userID string) ([]string, error) {
+func GetUserConnections(userID uuid.UUID) ([]string, error) {
 	db := database.DB
 	log.Printf("Fetching connections for userID: %s\n", userID)
 	var connections []struct {
@@ -107,7 +96,7 @@ func GetUserConnections(userID string) ([]string, error) {
 	return connectionIDs, nil
 }
 
-func GetLikedPostIDs(userID string) ([]string, error) {
+func GetLikedPostIDs(userID uuid.UUID) ([]string, error) {
 	db := database.DB
 	log.Printf("Fetching liked post IDs for userID: %s\n", userID)
 	var likedPosts []struct {
@@ -124,7 +113,7 @@ func GetLikedPostIDs(userID string) ([]string, error) {
 	return postIDs, nil
 }
 
-func GetEnhancedFeedPosts(userID string, connections, excludedPosts []string, limit, offset int) ([]models.Post, error) {
+func GetEnhancedFeedPosts(userID uuid.UUID, connections, excludedPosts []string, limit, offset int) ([]models.Post, error) {
 	db := database.DB
 	log.Printf("Fetching filtered posts with userID: %s, connections: %v, excludedPosts: %v, limit: %d, offset: %d\n", userID, connections, excludedPosts, limit, offset)
 
@@ -233,7 +222,7 @@ func GetEnhancedFeedPosts(userID string, connections, excludedPosts []string, li
 	log.Printf("Retrieved filtered posts: %+v\n", posts)
 	return posts, nil
 }
-
+    
 func deduplicatePosts(posts []models.Post) []models.Post {
 	seen := make(map[string]bool)
 	uniquePosts := []models.Post{}

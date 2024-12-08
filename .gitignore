@@ -1,6 +1,6 @@
 .env*
 tmp
 *.json
-bandobast-backend
+backend
 *.csv
 scratch-files/*

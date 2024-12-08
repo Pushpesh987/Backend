@@ -6,11 +6,9 @@ import (
 	"Backend/src/core/models"
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 	"io"
 	"log"
 	"mime/multipart"
@@ -21,24 +19,13 @@ import (
 func CreatePost(c *fiber.Ctx) error {
 	db := database.DB
 
-	authID, ok := c.Locals("user_id").(string)
-	if !ok || authID == "" {
-		log.Println("Invalid or missing authID")
-		return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid or missing auth_id", nil)
+	userId, ok := c.Locals("user_id").(string)
+	if !ok || userId == "" {
+		log.Println("Invalid or missing userId")
+		return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid or missing user_id", nil)
 	}
 
-	var user struct {
-		ID string `gorm:"column:id"`
-	}
-	if err := db.Table("users").Where("auth_id = ?", authID).Select("id").First(&user).Error; err != nil {
-		log.Printf("Error fetching user: %v\n", err)
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return helpers.HandleError(c, fiber.StatusNotFound, "User not found", nil)
-		}
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Database query failed", err)
-	}
-
-	userID, err := uuid.Parse(user.ID)
+	userID, err := uuid.Parse(userId)
 	if err != nil {
 		log.Printf("Error parsing user ID as UUID: %v\n", err)
 		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid user ID format", err)
@@ -231,14 +218,9 @@ func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
 func CreateComment(c *fiber.Ctx) error {
 	db := database.DB
 
-	authID, ok := c.Locals("user_id").(string)
-	if !ok || authID == "" {
-		return helpers.HandleError(c, fiber.StatusUnauthorized, "Unauthorized: missing auth_id", nil)
-	}
-
-	var userID string
-	if err := db.Raw("SELECT id FROM users WHERE auth_id = ?", authID).Scan(&userID).Error; err != nil || userID == "" {
-		return helpers.HandleError(c, fiber.StatusNotFound, "User not found", err)
+	userID, ok := c.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return helpers.HandleError(c, fiber.StatusUnauthorized, "Unauthorized: missing user_id", nil)
 	}
 
 	type Request struct {
@@ -271,14 +253,9 @@ func CreateComment(c *fiber.Ctx) error {
 func CreateLike(c *fiber.Ctx) error {
 	db := database.DB
 
-	authID, ok := c.Locals("user_id").(string)
-	if !ok || authID == "" {
-		return helpers.HandleError(c, fiber.StatusUnauthorized, "Unauthorized: missing auth_id", nil)
-	}
-
-	var userID string
-	if err := db.Raw("SELECT id FROM users WHERE auth_id = ?", authID).Scan(&userID).Error; err != nil || userID == "" {
-		return helpers.HandleError(c, fiber.StatusNotFound, "User not found", err)
+	userID, ok := c.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return helpers.HandleError(c, fiber.StatusUnauthorized, "Unauthorized: missing user_id", nil)
 	}
 
 	type Request struct {
@@ -322,24 +299,24 @@ func CreateShare(c *fiber.Ctx) error {
 		return helpers.HandleError(c, fiber.StatusNotFound, "Post not found", err)
 	}
 
-	authID := c.Locals("user_id")
-	if authID == nil {
-		return helpers.HandleError(c, fiber.StatusUnauthorized, "User authentication failed: auth_id is missing", nil)
+	userID := c.Locals("user_id")
+	if userID == nil {
+		return helpers.HandleError(c, fiber.StatusUnauthorized, "User authentication failed: user_id is missing", nil)
 	}
 
-	authIDStr, ok := authID.(string)
+	userIDStr, ok := userID.(string)
 	if !ok {
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Invalid auth_id type", nil)
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "Invalid user_id type", nil)
 	}
-	authIDParsed, err := uuid.Parse(authIDStr)
+	userIDParsed, err := uuid.Parse(userIDStr)
 	if err != nil {
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Invalid auth_id format", err)
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "Invalid user_id format", err)
 	}
 
-	fmt.Println("Auth ID:", authIDParsed)
+	fmt.Println("Auth ID:", userIDParsed)
 
 	var user models.User
-	if err := db.First(&user, "auth_id = ?", authIDParsed).Error; err != nil {
+	if err := db.First(&user, "id = ?", userIDParsed).Error; err != nil {
 		return helpers.HandleError(c, fiber.StatusInternalServerError, "User not found", err)
 	}
 

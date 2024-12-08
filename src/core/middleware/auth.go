@@ -23,7 +23,7 @@ func Protected() fiber.Handler {
 			// Extract user claims and attach user_id to the context
 			user := c.Locals("user").(*jwt.Token)
 			claims := user.Claims.(jwt.MapClaims)
-			if userID, ok := claims["sub"].(string); ok {
+			if userID, ok := claims["user_id"].(string); ok {
 				c.Locals("user_id", userID)
 				return c.Next()
 			}

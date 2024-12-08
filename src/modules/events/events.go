@@ -20,24 +20,13 @@ import (
 func CreateEvent(c *fiber.Ctx) error {
 	db := database.DB
 
-	authID, ok := c.Locals("user_id").(string)
-	if !ok || authID == "" {
-		log.Println("Invalid or missing authID")
+	userId, ok := c.Locals("user_id").(string)
+	if !ok || userId == "" {
+		log.Println("Invalid or missing userID")
 		return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid or missing auth_id", nil)
 	}
 
-	var user struct {
-		ID string `gorm:"column:id"`
-	}
-	if err := db.Table("users").Where("auth_id = ?", authID).Select("id").First(&user).Error; err != nil {
-		log.Printf("Error fetching user: %v\n", err)
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return helpers.HandleError(c, fiber.StatusNotFound, "User not found", nil)
-		}
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Database query failed", err)
-	}
-
-	userID, err := uuid.Parse(user.ID)
+	userID, err := uuid.Parse(userId)
 	if err != nil {
 		log.Printf("Error parsing user ID as UUID: %v\n", err)
 		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid user ID format", err)
@@ -88,24 +77,13 @@ func CreateEvent(c *fiber.Ctx) error {
 func CreateWorkshop(c *fiber.Ctx) error {
 	db := database.DB
 
-	authID, ok := c.Locals("user_id").(string)
-	if !ok || authID == "" {
-		log.Println("Invalid or missing authID")
-		return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid or missing auth_id", nil)
+	userId, ok := c.Locals("user_id").(string)
+	if !ok || userId == "" {
+		log.Println("Invalid or missing userID")
+		return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid or missing user_id", nil)
 	}
 
-	var user struct {
-		ID string `gorm:"column:id"`
-	}
-	if err := db.Table("users").Where("auth_id = ?", authID).Select("id").First(&user).Error; err != nil {
-		log.Printf("Error fetching user: %v\n", err)
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return helpers.HandleError(c, fiber.StatusNotFound, "User not found", nil)
-		}
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Database query failed", err)
-	}
-
-	userID, err := uuid.Parse(user.ID)
+	userID, err := uuid.Parse(userId)
 	if err != nil {
 		log.Printf("Error parsing user ID as UUID: %v\n", err)
 		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid user ID format", err)
@@ -163,24 +141,13 @@ func CreateWorkshop(c *fiber.Ctx) error {
 func CreateProject(c *fiber.Ctx) error {
 	db := database.DB
 
-	authID, ok := c.Locals("user_id").(string)
-	if !ok || authID == "" {
-		log.Println("Invalid or missing authID")
-		return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid or missing auth_id", nil)
+	userId, ok := c.Locals("user_id").(string)
+	if !ok || userId == "" {
+		log.Println("Invalid or missing userId")
+		return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid or missing user_id", nil)
 	}
 
-	var user struct {
-		ID string `gorm:"column:id"`
-	}
-	if err := db.Table("users").Where("auth_id = ?", authID).Select("id").First(&user).Error; err != nil {
-		log.Printf("Error fetching user: %v\n", err)
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return helpers.HandleError(c, fiber.StatusNotFound, "User not found", nil)
-		}
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Database query failed", err)
-	}
-
-	userID, err := uuid.Parse(user.ID)
+	userID, err := uuid.Parse(userId)
 	if err != nil {
 		log.Printf("Error parsing user ID as UUID: %v\n", err)
 		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid user ID format", err)
