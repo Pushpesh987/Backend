@@ -1,6 +1,5 @@
 .env*
 tmp
 *.json
-backend
 *.csv
 scratch-files/*
