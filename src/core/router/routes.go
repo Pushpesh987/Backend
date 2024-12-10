@@ -52,7 +52,7 @@ func setupAPIV1Routes(router fiber.Router) {
 	// User routes
 	userGroup.Get("/profile", middleware.Protected(), users.GetProfile)
 	userGroup.Put("/Update-profile", middleware.Protected(), users.UpdateProfile)
-	userGroup.Post("/profile", middleware.Protected(), users.CreateProfile)
+	// userGroup.Post("/profile", middleware.Protected(), users.CreateProfile)
 	userGroup.Post("/upload-profile-photo", middleware.Protected(), users.UploadProfilePhoto)
 	userGroup.Post("/update-skill-interest", middleware.Protected(), users.UpdateUserSkillsAndInterests)
 	userGroup.Post("/follow", middleware.Protected(), connection.Follow)

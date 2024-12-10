@@ -7,13 +7,15 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
-	"gorm.io/gorm"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"os"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 func GetProfile(c *fiber.Ctx) error {
@@ -73,193 +75,236 @@ func GetProfile(c *fiber.Ctx) error {
 	return helpers.HandleSuccess(c, fiber.StatusOK, "User profile retrieved successfully", profile)
 }
 
-func CreateProfile(c *fiber.Ctx) error {
-	db := database.DB
-	userID := c.Locals("user_id").(string)
+// func CreateProfile(c *fiber.Ctx) error {
+// 	db := database.DB
+// 	userID := c.Locals("user_id").(string)
 
-	body := new(models.User)
-	if err := c.BodyParser(body); err != nil {
-		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid input data", err)
-	}
+// 	body := new(models.User)
+// 	if err := c.BodyParser(body); err != nil {
+// 		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid input data", err)
+// 	}
 
-	getOrCreateID := func(tableName string, columnName string, value string) (string, error) {
-		var record struct {
-			ID string `gorm:"column:id"`
-		}
+// 	getOrCreateID := func(tableName string, columnName string, value string) (string, error) {
+// 		var record struct {
+// 			ID string `gorm:"column:id"`
+// 		}
 
-		err := db.Table(tableName).Where(columnName+" = ?", value).First(&record).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			newRecord := map[string]interface{}{columnName: value}
-			result := db.Table(tableName).Create(&newRecord)
-			if result.Error != nil {
-				return "", result.Error
-			}
+// 		err := db.Table(tableName).Where(columnName+" = ?", value).First(&record).Error
+// 		if errors.Is(err, gorm.ErrRecordNotFound) {
+// 			newRecord := map[string]interface{}{columnName: value}
+// 			result := db.Table(tableName).Create(&newRecord)
+// 			if result.Error != nil {
+// 				return "", result.Error
+// 			}
 
-			err = db.Table(tableName).Where(columnName+" = ?", value).Select("id").First(&record).Error
-			if err != nil {
-				return "", err
-			}
-		} else if err != nil {
-			return "", err
-		}
+// 			err = db.Table(tableName).Where(columnName+" = ?", value).Select("id").First(&record).Error
+// 			if err != nil {
+// 				return "", err
+// 			}
+// 		} else if err != nil {
+// 			return "", err
+// 		}
 
-		return record.ID, nil
-	}
+// 		return record.ID, nil
+// 	}
 
-	locationID, err := getOrCreateID("locations", "name", body.LocationName)
-	if err != nil {
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process location", err)
-	}
+// 	locationID, err := getOrCreateID("locations", "name", body.LocationName)
+// 	if err != nil {
+// 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process location", err)
+// 	}
 
-	educationLevelID, err := getOrCreateID("education_levels", "level_name", body.EducationLevelName)
-	if err != nil {
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process education level", err)
-	}
+// 	educationLevelID, err := getOrCreateID("education_levels", "level_name", body.EducationLevel)
+// 	if err != nil {
+// 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process education level", err)
+// 	}
 
-	fieldOfStudyID, err := getOrCreateID("fields_of_study", "field_name", body.FieldOfStudyName)
-	if err != nil {
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process field of study", err)
-	}
+// 	fieldOfStudyID, err := getOrCreateID("fields_of_study", "field_name", body.FieldOfStudy)
+// 	if err != nil {
+// 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process field of study", err)
+// 	}
 
-	collegeNameID, err := getOrCreateID("colleges", "college_name", body.CollegeName)
-	if err != nil {
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process college name", err)
-	}
+// 	collegeNameID, err := getOrCreateID("colleges", "college_name", body.CollegeName)
+// 	if err != nil {
+// 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process college name", err)
+// 	}
 
-	profileData := map[string]interface{}{
-		"first_name":         body.FirstName,
-		"last_name":          body.LastName,
-		"age":                body.Age,
-		"gender":             body.Gender,
-		"dob":                body.Dob,
-		"phone":              body.Phone,
-		"email":              body.Email,
-		"location_id":        locationID,
-		"education_level_id": educationLevelID,
-		"field_of_study_id":  fieldOfStudyID,
-		"college_name_id":    collegeNameID,
-	}
+// 	profileData := map[string]interface{}{
+// 		"first_name":         body.FirstName,
+// 		"last_name":          body.LastName,
+// 		"age":                body.Age,
+// 		"gender":             body.Gender,
+// 		"dob":                body.Dob,
+// 		"phone":              body.Phone,
+// 		"email":              body.Email,
+// 		"location_id":        locationID,
+// 		"education_level_id": educationLevelID,
+// 		"field_of_study_id":  fieldOfStudyID,
+// 		"college_name_id":    collegeNameID,
+// 	}
 
-	if result := db.Table("users").Where("id = ?", userID).Updates(profileData); result.Error != nil {
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update profile", result.Error)
-	}
+// 	if result := db.Table("users").Where("id = ?", userID).Updates(profileData); result.Error != nil {
+// 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update profile", result.Error)
+// 	}
 
-	return helpers.HandleSuccess(c, fiber.StatusOK, "User profile updated successfully", profileData)
-}
+// 	return helpers.HandleSuccess(c, fiber.StatusOK, "User profile updated successfully", profileData)
+// }
 
 func UpdateProfile(c *fiber.Ctx) error {
-	db := database.DB
-	userID := c.Locals("user_id").(string)
+    db := database.DB
+    userID := c.Locals("user_id").(string)
 
-	body := struct {
-		models.User
-		Skills           []string  `json:"skills"`
-		Interests        []string  `json:"interests"`
-		LocationID       uuid.UUID `json:"location_id"`
-		EducationLevelID uuid.UUID `json:"education_level_id"`
-		FieldOfStudyID   uuid.UUID `json:"field_of_study_id"`
-		CollegeNameID    uuid.UUID `json:"college_name_id"`
-	}{}
+    // Struct for storing profile data
+    body := &models.User{}
+    body.FirstName = c.FormValue("first_name")
+    body.LastName = c.FormValue("last_name")
+    body.Username = c.FormValue("username")
+    body.Gender = c.FormValue("gender")
+    body.Dob, _ = time.Parse("2006-01-02", c.FormValue("dob")) // Assuming date format as "YYYY-MM-DD"
+    body.Phone = c.FormValue("phone")
+    body.Email = c.FormValue("email")
+    body.LocationName = c.FormValue("location_name")
+    body.EducationLevel = c.FormValue("education_level")
+    body.FieldOfStudy = c.FormValue("field_of_study")
+    body.CollegeName = c.FormValue("college_name")
 
-	if err := c.BodyParser(&body); err != nil {
-		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid input data", err)
-	}
+    updates := map[string]interface{}{}
+    if body.FirstName != "" {
+        updates["first_name"] = body.FirstName
+    }
+    if body.LastName != "" {
+        updates["last_name"] = body.LastName
+    }
+    if body.Username != "" {
+        updates["username"] = body.Username
+    }
+    if body.Gender != "" {
+        updates["gender"] = body.Gender
+    }
+    if !body.Dob.IsZero() {
+        updates["dob"] = body.Dob
+    }
+    if body.Phone != "" {
+        updates["phone"] = body.Phone
+    }
+    if body.Email != "" {
+        updates["email"] = body.Email
+    }
 
-	updates := map[string]interface{}{
-		"first_name":         body.FirstName,
-		"last_name":          body.LastName,
-		"gender":             body.Gender,
-		"dob":                body.Dob,
-		"phone":              body.Phone,
-		"email":              body.Email,
-		"location_id":        body.LocationID,
-		"education_level_id": body.EducationLevelID,
-		"field_of_study_id":  body.FieldOfStudyID,
-		"college_name_id":    body.CollegeNameID,
-	}
+    // Helper function for fetching or creating IDs
+    getOrCreateID := func(tableName string, columnName string, value string) (string, error) {
+        var record struct {
+            ID string `gorm:"column:id"`
+        }
+        err := db.Table(tableName).Where(columnName+" = ?", value).First(&record).Error
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            newRecord := map[string]interface{}{columnName: value}
+            result := db.Table(tableName).Create(&newRecord)
+            if result.Error != nil {
+                return "", result.Error
+            }
+            err = db.Table(tableName).Where(columnName+" = ?", value).Select("id").First(&record).Error
+            if err != nil {
+                return "", err
+            }
+        } else if err != nil {
+            return "", err
+        }
+        return record.ID, nil
+    }
 
-	if result := db.Model(&models.User{}).Where("id = ?", userID).Updates(updates); result.Error != nil {
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update profile", result.Error)
-	}
+    if body.LocationName != "" {
+        locationID, err := getOrCreateID("locations", "name", body.LocationName)
+        if err != nil {
+            return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process location", err)
+        }
+        updates["location_id"] = locationID
+    }
 
-	if body.LocationID != uuid.Nil {
-		var locationID uuid.UUID
-		locationCheckQuery := `INSERT INTO locations (name) 
-                               VALUES (?) 
-                               ON CONFLICT (name) DO UPDATE SET name=EXCLUDED.name RETURNING id`
-		if err := db.Raw(locationCheckQuery, body.LocationID).Scan(&locationID).Error; err != nil {
-			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process location", err)
+    if body.EducationLevel != "" {
+        educationLevelID, err := getOrCreateID("education_levels", "level_name", body.EducationLevel)
+        if err != nil {
+            return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process education level", err)
+        }
+        updates["education_level_id"] = educationLevelID
+    }
+
+    if body.FieldOfStudy != "" {
+        fieldOfStudyID, err := getOrCreateID("fields_of_study", "field_name", body.FieldOfStudy)
+        if err != nil {
+            return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process field of study", err)
+        }
+        updates["field_of_study_id"] = fieldOfStudyID
+    }
+
+    if body.CollegeName != "" {
+        collegeNameID, err := getOrCreateID("colleges", "college_name", body.CollegeName)
+        if err != nil {
+            return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process college name", err)
+        }
+        updates["college_name_id"] = collegeNameID
+    }
+	file, err := c.FormFile("profile_photo")
+	if err == nil {
+		fileContent, err := file.Open()
+		if err != nil {
+			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to open file", err)
+		}
+		defer fileContent.Close()
+
+		fileName := uuid.New().String() + "-" + file.Filename
+		filePath := fmt.Sprintf("profile-photos/%s", fileName)
+		publicURL, err := uploadToSupabase(filePath, fileContent)
+		if err != nil {
+			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to upload file to storage", err)
 		}
 
-		updates["location_id"] = locationID
-		if result := db.Model(&models.User{}).Where("id = ?", userID).Updates(updates); result.Error != nil {
-			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update location", result.Error)
-		}
+		updates["profile_pic_url"] = publicURL
+		updates["profile_pic_size"] = file.Size
+		updates["profile_pic_storage_path"] = filePath
 	}
 
-	if body.EducationLevelID != uuid.Nil {
-		var educationLevelID uuid.UUID
-		educationLevelCheckQuery := `INSERT INTO education_levels (level_name) 
-                                     VALUES (?) 
-                                     ON CONFLICT (level_name) DO UPDATE SET level_name=EXCLUDED.level_name RETURNING id`
-		if err := db.Raw(educationLevelCheckQuery, body.EducationLevelID).Scan(&educationLevelID).Error; err != nil {
-			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process education level", err)
-		}
+    if len(updates) > 0 {
+        if result := db.Model(&models.User{}).Where("id = ?", userID).Updates(updates); result.Error != nil {
+            return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update profile", result.Error)
+        }
+    }
 
-		updates["education_level_id"] = educationLevelID
-		if result := db.Model(&models.User{}).Where("id = ?", userID).Updates(updates); result.Error != nil {
-			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update education level", result.Error)
-		}
-	}
-
-	if body.FieldOfStudyID != uuid.Nil {
-		var fieldOfStudyID uuid.UUID
-		fieldOfStudyCheckQuery := `INSERT INTO fields_of_study (field_name) 
-                                   VALUES (?) 
-                                   ON CONFLICT (field_name) DO UPDATE SET field_name=EXCLUDED.field_name RETURNING id`
-		if err := db.Raw(fieldOfStudyCheckQuery, body.FieldOfStudyID).Scan(&fieldOfStudyID).Error; err != nil {
-			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process field of study", err)
-		}
-
-		updates["field_of_study_id"] = fieldOfStudyID
-		if result := db.Model(&models.User{}).Where("id = ?", userID).Updates(updates); result.Error != nil {
-			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update field of study", result.Error)
-		}
-	}
-
-	for _, skill := range body.Skills {
-		var skillID string
-		skillCheckQuery := `INSERT INTO skills (skill_name) 
+    for _, skill := range c.FormValue("skills") {
+        var skillID string
+        skillCheckQuery := `INSERT INTO skills (skill_name) 
                             VALUES (?) 
                             ON CONFLICT (skill_name) DO UPDATE SET skill_name=EXCLUDED.skill_name RETURNING skill_id`
-		if err := db.Raw(skillCheckQuery, skill).Scan(&skillID).Error; err != nil {
-			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process skill", err)
-		}
+        if err := db.Raw(skillCheckQuery, skill).Scan(&skillID).Error; err != nil {
+            return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process skill", err)
+        }
 
-		userSkillQuery := `INSERT INTO user_skills (user_id, skill_id) VALUES (?, ?) 
+        userSkillQuery := `INSERT INTO user_skills (user_id, skill_id) VALUES (?, ?) 
                            ON CONFLICT (user_id, skill_id) DO NOTHING`
-		if err := db.Exec(userSkillQuery, userID, skillID).Error; err != nil {
-			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to link skill", err)
-		}
-	}
+        if err := db.Exec(userSkillQuery, userID, skillID).Error; err != nil {
+            return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to link skill", err)
+        }
+    }
 
-	for _, interest := range body.Interests {
-		var interestID string
-		interestCheckQuery := `INSERT INTO interests (interest_name) 
+    for _, interest := range c.FormValue("interests") {
+        var interestID string
+        interestCheckQuery := `INSERT INTO interests (interest_name) 
                                VALUES (?) 
                                ON CONFLICT (interest_name) DO UPDATE SET interest_name=EXCLUDED.interest_name RETURNING interest_id`
-		if err := db.Raw(interestCheckQuery, interest).Scan(&interestID).Error; err != nil {
-			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process interest", err)
-		}
+        if err := db.Raw(interestCheckQuery, interest).Scan(&interestID).Error; err != nil {
+            return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to process interest", err)
+        }
 
-		userInterestQuery := `INSERT INTO user_interests (user_id, interest_id) VALUES (?, ?) 
+        userInterestQuery := `INSERT INTO user_interests (user_id, interest_id) VALUES (?, ?) 
                               ON CONFLICT (user_id, interest_id) DO NOTHING`
-		if err := db.Exec(userInterestQuery, userID, interestID).Error; err != nil {
-			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to link interest", err)
-		}
-	}
+        if err := db.Exec(userInterestQuery, userID, interestID).Error; err != nil {
+            return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to link interest", err)
+        }
+    }
 
-	return helpers.HandleSuccess(c, fiber.StatusOK, "User profile updated successfully", nil)
+    fmt.Println("Updates Map:", updates)
+    fmt.Printf("Body after parsing: %+v\n", body)
+
+    return helpers.HandleSuccess(c, fiber.StatusOK, "User profile updated successfully", nil)
 }
 
 func UploadProfilePhoto(c *fiber.Ctx) error {
@@ -286,11 +331,10 @@ func UploadProfilePhoto(c *fiber.Ctx) error {
 	updates := map[string]interface{}{
 		"profile_pic_url":          publicURL,
 		"profile_pic_size":         file.Size,
-		"profile_pic_content_type": file.Header.Get("Content-Type"),
 		"profile_pic_storage_path": filePath,
 	}
 
-	if result := db.Model(&models.User{}).Where("auth_id = ?", userID).Updates(updates); result.Error != nil {
+	if result := db.Model(&models.User{}).Where("id = ?", userID).Updates(updates); result.Error != nil {
 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update profile photo metadata", result.Error)
 	}
 
