@@ -79,6 +79,15 @@ func SignUp(c *fiber.Ctx) error {
 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to create user record", result.Error)
 	}
 
+	userBadge := models.UserBadge{
+		UserID:  user.ID,
+		BadgeID: 1,
+	}
+	
+	if err := db.Create(&userBadge).Error; err != nil {
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to assign badge to user", err)
+	}
+
 	return helpers.HandleSuccess(c, fiber.StatusCreated, "Account created successfully", map[string]interface{}{
 		"auth_id": auth.ID,
 		"user_id": user.ID,
