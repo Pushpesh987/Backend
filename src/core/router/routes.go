@@ -8,6 +8,7 @@ import (
 	"Backend/src/modules/feed"
 	"Backend/src/modules/posts"
 	"Backend/src/modules/users"
+	"Backend/src/modules/questions"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -42,6 +43,7 @@ func setupAPIV1Routes(router fiber.Router) {
 	postGroup := router.Group("/posts")
 	feedGroup := router.Group("/feed")
 	eventGroup := router.Group("/events")
+	questionGroup := router.Group("/question")
 	// messagesGroup := router.Group("/messages")
 
 	// Authentication routes
@@ -73,6 +75,11 @@ func setupAPIV1Routes(router fiber.Router) {
 	eventGroup.Get("/eventsfeed", middleware.Protected(), events.GetEventsFeed)
 	eventGroup.Get("/workshopsfeed", middleware.Protected(), events.GetWorkshopsFeed)
 	eventGroup.Get("/projectsfeed", middleware.Protected(), events.GetProjectsFeed)
+
+	questionGroup.Get("/daily",middleware.Protected(),questions.GetDailyQuestions)
+	questionGroup.Get("/skill",middleware.Protected(),questions.GetSkillQuestions)
+	questionGroup.Get("/bonus",middleware.Protected(),questions.GetBonusQuestions)
+	questionGroup.Post("/submit",middleware.Protected(),questions.SubmitAnswer)
 
 	// // Feed routes
 	feedGroup.Get("/", middleware.Protected(), feed.FetchFeed)

@@ -145,6 +145,8 @@ CREATE TABLE IF NOT EXISTS questions (
     difficulty difficulty_enum NOT NULL,
     points INT NOT NULL DEFAULT 0,
     multiplier FLOAT DEFAULT 1.0,
+    question_type VARCHAR(10) NOT NULL DEFAULT 'daily',
+    CHECK (question_type IN ('daily', 'bonus','skill')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -243,31 +245,105 @@ CREATE TABLE IF NOT EXISTS workshops (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
-
-
 CREATE OR REPLACE FUNCTION check_and_update_badges()
 RETURNS TRIGGER AS $$
+DECLARE
+    current_badge_id INTEGER;  
+    new_badge_id INTEGER;     
 BEGIN
-    -- Check for new badges the user qualifies for
-    INSERT INTO user_badges (user_id, badge_id, earned_at)
-    SELECT 
-        NEW.user_id, b.badge_id, NOW()
+    SELECT badge_id INTO current_badge_id
+    FROM user_badges
+    WHERE user_id = NEW.user_id;
+
+    SELECT b.badge_id INTO new_badge_id
     FROM badges b
     WHERE 
-        b.points_required <= NEW.total_points
-        AND b.streak_required <= NEW.highest_streak
-        AND b.badge_id NOT IN (
-            SELECT badge_id FROM user_badges WHERE user_id = NEW.user_id
-        );
+        b.points_required <= NEW.total_points 
+        AND b.streak_required <= NEW.highest_streak 
+    ORDER BY b.badge_id DESC 
+    LIMIT 1;
+
+    IF new_badge_id IS NOT NULL AND (current_badge_id IS NULL OR new_badge_id > current_badge_id) THEN
+        UPDATE user_badges
+        SET 
+            badge_id = new_badge_id,
+            earned_at = NOW()
+        WHERE user_id = NEW.user_id;
+    END IF;
 
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
 CREATE TRIGGER trigger_check_badges
 AFTER UPDATE ON points_streak
 FOR EACH ROW
 EXECUTE FUNCTION check_and_update_badges();
 
+CREATE OR REPLACE FUNCTION update_points_and_streak()
+RETURNS TRIGGER AS $$
+DECLARE
+    question_points INT; 
+    question_multiplier FLOAT; 
+    points_to_add INT; 
+    last_answered_time TIMESTAMP; 
+    current_user_streak INT;
+BEGIN
 
+    SELECT points, multiplier INTO question_points, question_multiplier
+    FROM questions
+    WHERE question_id = NEW.question_id;
 
+    points_to_add := question_points * question_multiplier;
+
+    SELECT MAX(attempted_at) INTO last_answered_time
+    FROM quiz_attempts
+    WHERE user_id = NEW.user_id;
+
+    SELECT current_streak INTO current_user_streak
+    FROM points_streak
+    WHERE user_id = NEW.user_id;
+
+    IF EXISTS (SELECT 1 FROM points_streak WHERE user_id = NEW.user_id) THEN
+
+        IF last_answered_time IS NOT NULL AND EXTRACT(DAY FROM CURRENT_DATE - last_answered_time) > 1 THEN
+            UPDATE points_streak
+            SET 
+                current_streak = 0,
+                total_points = total_points + points_to_add,
+                highest_streak = highest_streak  
+            WHERE user_id = NEW.user_id;
+        ELSIF last_answered_time IS NOT NULL AND EXTRACT(DAY FROM CURRENT_DATE - last_answered_time) = 1 THEN
+            UPDATE points_streak
+            SET 
+                current_streak = current_user_streak + 1,  
+                total_points = total_points + points_to_add,
+                highest_streak = GREATEST(current_user_streak + 1, highest_streak) 
+            WHERE user_id = NEW.user_id;
+
+        ELSE
+            UPDATE points_streak
+            SET 
+                total_points = total_points + points_to_add
+            WHERE user_id = NEW.user_id;
+        END IF;
+
+    ELSE
+        INSERT INTO points_streak (user_id, total_points, current_streak, highest_streak)
+        VALUES (
+            NEW.user_id, 
+            points_to_add, 
+            CASE WHEN NEW.is_correct THEN 1 ELSE 0 END, 
+            CASE WHEN NEW.is_correct THEN 1 ELSE 0 END
+        );
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_points_and_streak
+AFTER INSERT ON quiz_attempts
+FOR EACH ROW
+EXECUTE FUNCTION update_points_and_streak();
 
