@@ -13,15 +13,11 @@ type User struct {
 	Username                string    `gorm:"column:username;type:text;unique;not null" json:"username"`
 	ProfilePhotoURL         string    `gorm:"column:profile_pic_url;type:text;not null" json:"profile_photo_url"`
 	ProfilePhotoSize        int       `gorm:"column:profile_pic_size;type:int;not null;default:0" json:"profile_photo_size"`
-	// ProfilePhotoContentType string    `gorm:"column:profile_pic_content_type;type:varchar;not null" json:"profile_photo_content_type"`
 	ProfilePhotoStoragePath string    `gorm:"column:profile_pic_storage_path;type:text;not null" json:"profile_photo_storage_path"`
-	LocationName            string    `gorm:"-" json:"location_name"`
 	LocationID              uuid.UUID `gorm:"column:location_id;type:uuid;not null" json:"location_id"`
 	EducationLevel      	string    `gorm:"-" json:"education_level"`
 	EducationLevelID        uuid.UUID `gorm:"column:education_level_id;type:uuid;not null" json:"education_level_id"`
-	FieldOfStudy        	string    `gorm:"-" json:"field_of_study"`
 	FieldOfStudyID          uuid.UUID `gorm:"column:field_of_study_id;type:uuid;not null" json:"field_of_study_id"`
-	CollegeName             string    `gorm:"-" json:"college_name"`
 	CollegeNameID           uuid.UUID `gorm:"column:college_name_id;type:uuid;not null" json:"college_name_id"`
 	Age                     int       `gorm:"column:age;type:int;not null;default:0" json:"age"`
 	Dob                     time.Time `gorm:"column:dob;type:date;not null" json:"dob"`
