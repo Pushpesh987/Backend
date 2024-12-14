@@ -3,16 +3,21 @@ package router
 import (
 	"Backend/src/core/middleware"
 	"Backend/src/modules/authentication"
+	"Backend/src/modules/communities"
 	connection "Backend/src/modules/connections"
 	"Backend/src/modules/events"
 	"Backend/src/modules/feed"
 	"Backend/src/modules/posts"
 	"Backend/src/modules/questions"
+	"Backend/src/modules/messages"
+
+	// "Backend/src/modules/communities"
 	"Backend/src/modules/users"
 	"fmt"
+	"sort"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
-	"sort"
 )
 
 func InitialiseAndSetupRoutes(app *fiber.App) {
@@ -44,6 +49,7 @@ func setupAPIV1Routes(router fiber.Router) {
 	feedGroup := router.Group("/feed")
 	eventGroup := router.Group("/events")
 	questionGroup := router.Group("/question")
+	communityGroup :=router.Group("/communities")
 	// messagesGroup := router.Group("/messages")
 
 	// Authentication routes
@@ -86,6 +92,16 @@ func setupAPIV1Routes(router fiber.Router) {
 	questionGroup.Get("/skill", middleware.Protected(), questions.GetSkillQuestions)
 	questionGroup.Get("/bonus", middleware.Protected(), questions.GetBonusQuestions)
 	questionGroup.Post("/submit", middleware.Protected(), questions.SubmitAnswer)
+
+	communityGroup.Post("/create",middleware.Protected(),communities.CreateCommunity)
+	communityGroup.Post("/:id/join",middleware.Protected(),communities.JoinCommunity)
+	communityGroup.Get("/:id",middleware.Protected(), communities.GetCommunityDetails)
+    communityGroup.Get("/", middleware.Protected(), communities.GetAllCommunities)
+	communityGroup.Post("/:id/leave", middleware.Protected(), communities.LeaveCommunity)
+	communityGroup.Get("/user-joined", middleware.Protected(), communities.GetUserCommunities)
+	communityGroup.Get("/:id/messages", middleware.Protected(), communities.GetCommunityMessages)
+	communityGroup.Post("/:id/messages", middleware.Protected(), messages.SendMessage)
+	communityGroup.Get("/:id/messages/ws", middleware.Protected(), messages.WebSocketHandler)
 
 	// // Feed routes
 	feedGroup.Get("/", middleware.Protected(), feed.FetchFeed)

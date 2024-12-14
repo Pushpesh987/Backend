@@ -29,6 +29,7 @@ require (
 	github.com/gofiber/contrib/jwt v1.0.10
 	github.com/golang-jwt/jwt/v4 v4.5.1
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/compress v1.17.0 // indirect
 	github.com/lib/pq v1.10.9

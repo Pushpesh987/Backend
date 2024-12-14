@@ -37,6 +37,23 @@ CREATE TABLE IF NOT EXISTS comments (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS communities (
+    id SERIAL PRIMARY KEY,                
+    name VARCHAR(255) NOT NULL,           
+    description TEXT,                      
+    created_at TIMESTAMP DEFAULT NOW()    
+);
+
+CREATE TABLE IF NOT EXISTS community_members (
+    id SERIAL PRIMARY KEY,                 
+    user_id UUID NOT NULL,                 
+    community_id INT NOT NULL,             
+    joined_at TIMESTAMP DEFAULT NOW(),     
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE,
+    UNIQUE (user_id, community_id)        
+);
+
 CREATE TABLE IF NOT EXISTS connections (
     id SERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id),
@@ -90,6 +107,16 @@ CREATE TABLE IF NOT EXISTS likes (
 CREATE TABLE IF NOT EXISTS locations (
     id uuid PRIMARY KEY NOT NULL DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    id SERIAL PRIMARY KEY,                 
+    community_id INT NOT NULL,             
+    user_id UUID NOT NULL,                 
+    message TEXT NOT NULL,                 
+    created_at TIMESTAMP DEFAULT NOW(),    
+    FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS points_streak (
