@@ -491,14 +491,142 @@ func UpdateProfile(c *fiber.Ctx) error {
 	return helpers.HandleSuccess(c, fiber.StatusOK, "User profile updated successfully", user)
 }
 
-func GetLocations(c *fiber.Ctx) error {
-	db := database.DB
-	userID := c.Locals("user_id").(string)
+// func GetLocations(c *fiber.Ctx) error {
+// 	db := database.DB
+// 	userID := c.Locals("user_id").(string)
 
-	locationQuery := `SELECT l.id AS id, l.name AS location_name 
-                      FROM users u
-                      JOIN locations l ON u.location_id = l.id
-                      WHERE u.id = ?`
+// 	locationQuery := `SELECT l.id AS id, l.name AS location_name
+//                       FROM users u
+//                       JOIN locations l ON u.location_id = l.id
+//                       WHERE u.id = ?`
+
+// 	type Location struct {
+// 		ID           uuid.UUID `json:"id"`
+// 		LocationName string    `json:"location_name"`
+// 	}
+
+// 	var locations []Location
+
+// 	if err := db.Raw(locationQuery, userID).Scan(&locations).Error; err != nil {
+// 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch locations", err)
+// 	}
+
+// 	return helpers.HandleSuccess(c, fiber.StatusOK, "Locations retrieved successfully", locations)
+// }
+
+// func GetSkills(c *fiber.Ctx) error {
+// 	db := database.DB
+// 	userID := c.Locals("user_id").(string)
+
+// 	type Skill struct {
+// 		SkillName string `json:"skill_name"`
+// 	}
+
+// 	var skills []Skill
+
+// 	skillQuery := `SELECT s.skill_name
+// 	               FROM user_skills us
+// 	               JOIN skills s ON us.skill_id = s.skill_id
+// 	               WHERE us.user_id = ?`
+
+// 	if err := db.Raw(skillQuery, userID).Scan(&skills).Error; err != nil {
+// 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch user skills", err)
+// 	}
+
+// 	skillNames := []string{}
+// 	for _, skill := range skills {
+// 		skillNames = append(skillNames, skill.SkillName)
+// 	}
+
+// 	return helpers.HandleSuccess(c, fiber.StatusOK, "User skills retrieved successfully", skillNames)
+// }
+
+// func GetInterests(c *fiber.Ctx) error {
+// 	db := database.DB
+// 	userID := c.Locals("user_id").(string)
+// 	type Interest struct {
+// 		InterestName string `json:"interest_name"`
+// 	}
+// 	interestQuery := `SELECT i.interest_name
+// 	                  FROM user_interests ui
+// 	                  JOIN interests i ON ui.interest_id = i.interest_id
+// 	                  WHERE ui.user_id = ?`
+
+// 	var interests []Interest
+// 	if err := db.Raw(interestQuery, userID).Scan(&interests).Error; err != nil {
+// 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch user interests", err)
+// 	}
+// 	interestNames := []string{}
+// 	for _, interest := range interests {
+// 		interestNames = append(interestNames, interest.InterestName)
+// 	}
+
+// 	return helpers.HandleSuccess(c, fiber.StatusOK, "User interests retrieved successfully", interestNames)
+// }
+
+// func GetFieldsOfStudy(c *fiber.Ctx) error {
+// 	db := database.DB
+// 	userID := c.Locals("user_id").(string)
+
+// 	fieldQuery := `SELECT f.field_name
+// 	               FROM users u
+// 	               JOIN fields_of_study f ON u.field_of_study_id = f.id
+// 	               WHERE u.id = ?`
+
+// 	var fieldNames []string
+// 	if err := db.Raw(fieldQuery, userID).Scan(&fieldNames).Error; err != nil {
+// 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch user fields of study", err)
+// 	}
+
+// 	type FieldOfStudy struct {
+// 		Name string `json:"field_name"`
+// 	}
+// 	fieldsOfStudy := make([]FieldOfStudy, len(fieldNames))
+// 	for i, name := range fieldNames {
+// 		fieldsOfStudy[i] = FieldOfStudy{Name: name}
+// 	}
+
+// 	return helpers.HandleSuccess(c, fiber.StatusOK, "User fields of study retrieved successfully", fieldsOfStudy)
+// }
+
+// func GetEducationLevels(c *fiber.Ctx) error {
+// 	db := database.DB
+// 	userID := c.Locals("user_id").(string)
+
+// 	educationQuery := `SELECT e.level_name
+// 	                  FROM users u
+// 	                  JOIN education_levels e ON u.education_level_id = e.id
+// 	                  WHERE u.id = ?`
+
+// 	var educationLevels []string
+// 	if err := db.Raw(educationQuery, userID).Scan(&educationLevels).Error; err != nil {
+// 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch user education levels", err)
+// 	}
+
+// 	return helpers.HandleSuccess(c, fiber.StatusOK, "User education levels retrieved successfully", educationLevels)
+// }
+
+// func GetColleges(c *fiber.Ctx) error {
+// 	db := database.DB
+// 	userID := c.Locals("user_id").(string)
+
+// 	collegeQuery := `SELECT c.college_name
+// 	                 FROM users u
+// 	                 JOIN colleges c ON u.college_name_id = c.id
+// 	                 WHERE u.id = ?`
+
+// 	var colleges []string
+// 	if err := db.Raw(collegeQuery, userID).Scan(&colleges).Error; err != nil {
+// 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch user colleges", err)
+// 	}
+
+//		return helpers.HandleSuccess(c, fiber.StatusOK, "User colleges retrieved successfully", colleges)
+//	}
+
+func GetAllLocationNames(c *fiber.Ctx) error {
+	db := database.DB
+
+	locationQuery := `SELECT l.id AS id, l.name AS location_name FROM locations l`
 
 	type Location struct {
 		ID           uuid.UUID `json:"id"`
@@ -507,16 +635,15 @@ func GetLocations(c *fiber.Ctx) error {
 
 	var locations []Location
 
-	if err := db.Raw(locationQuery, userID).Scan(&locations).Error; err != nil {
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch locations", err)
+	if err := db.Raw(locationQuery).Scan(&locations).Error; err != nil {
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch all locations", err)
 	}
 
-	return helpers.HandleSuccess(c, fiber.StatusOK, "Locations retrieved successfully", locations)
+	return helpers.HandleSuccess(c, fiber.StatusOK, "All locations retrieved successfully", locations)
 }
 
-func GetSkills(c *fiber.Ctx) error {
+func GetAllSkills(c *fiber.Ctx) error {
 	db := database.DB
-	userID := c.Locals("user_id").(string)
 
 	type Skill struct {
 		SkillName string `json:"skill_name"`
@@ -524,101 +651,83 @@ func GetSkills(c *fiber.Ctx) error {
 
 	var skills []Skill
 
-	skillQuery := `SELECT s.skill_name
-	               FROM user_skills us
-	               JOIN skills s ON us.skill_id = s.skill_id
-	               WHERE us.user_id = ?`
+	skillQuery := `SELECT skill_name FROM skills`
 
-	if err := db.Raw(skillQuery, userID).Scan(&skills).Error; err != nil {
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch user skills", err)
+	if err := db.Raw(skillQuery).Scan(&skills).Error; err != nil {
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch all skills", err)
 	}
 
-	skillNames := []string{}
-	for _, skill := range skills {
-		skillNames = append(skillNames, skill.SkillName)
-	}
-
-	return helpers.HandleSuccess(c, fiber.StatusOK, "User skills retrieved successfully", skillNames)
+	return helpers.HandleSuccess(c, fiber.StatusOK, "All skills retrieved successfully", skills)
 }
 
-func GetInterests(c *fiber.Ctx) error {
+func GetAllInterests(c *fiber.Ctx) error {
 	db := database.DB
-	userID := c.Locals("user_id").(string)
+
 	type Interest struct {
 		InterestName string `json:"interest_name"`
 	}
-	interestQuery := `SELECT i.interest_name
-	                  FROM user_interests ui
-	                  JOIN interests i ON ui.interest_id = i.interest_id
-	                  WHERE ui.user_id = ?`
 
 	var interests []Interest
-	if err := db.Raw(interestQuery, userID).Scan(&interests).Error; err != nil {
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch user interests", err)
-	}
-	interestNames := []string{}
-	for _, interest := range interests {
-		interestNames = append(interestNames, interest.InterestName)
+
+	interestQuery := `SELECT interest_name FROM interests`
+
+	if err := db.Raw(interestQuery).Scan(&interests).Error; err != nil {
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch all interests", err)
 	}
 
-	return helpers.HandleSuccess(c, fiber.StatusOK, "User interests retrieved successfully", interestNames)
+	return helpers.HandleSuccess(c, fiber.StatusOK, "All interests retrieved successfully", interests)
 }
 
-func GetFieldsOfStudy(c *fiber.Ctx) error {
+func GetAllFieldsOfStudy(c *fiber.Ctx) error {
 	db := database.DB
-	userID := c.Locals("user_id").(string)
-
-	fieldQuery := `SELECT f.field_name
-	               FROM users u
-	               JOIN fields_of_study f ON u.field_of_study_id = f.id
-	               WHERE u.id = ?`
-
-	var fieldNames []string
-	if err := db.Raw(fieldQuery, userID).Scan(&fieldNames).Error; err != nil {
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch user fields of study", err)
-	}
 
 	type FieldOfStudy struct {
-		Name string `json:"field_name"`
-	}
-	fieldsOfStudy := make([]FieldOfStudy, len(fieldNames))
-	for i, name := range fieldNames {
-		fieldsOfStudy[i] = FieldOfStudy{Name: name}
+		FieldName string `json:"field_name"`
 	}
 
-	return helpers.HandleSuccess(c, fiber.StatusOK, "User fields of study retrieved successfully", fieldsOfStudy)
+	var fieldsOfStudy []FieldOfStudy
+
+	fieldQuery := `SELECT field_name FROM fields_of_study`
+
+	if err := db.Raw(fieldQuery).Scan(&fieldsOfStudy).Error; err != nil {
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch all fields of study", err)
+	}
+
+	return helpers.HandleSuccess(c, fiber.StatusOK, "All fields of study retrieved successfully", fieldsOfStudy)
 }
 
-func GetEducationLevels(c *fiber.Ctx) error {
+func GetAllEducationLevels(c *fiber.Ctx) error {
 	db := database.DB
-	userID := c.Locals("user_id").(string)
 
-	educationQuery := `SELECT e.level_name
-	                  FROM users u
-	                  JOIN education_levels e ON u.education_level_id = e.id
-	                  WHERE u.id = ?`
-
-	var educationLevels []string
-	if err := db.Raw(educationQuery, userID).Scan(&educationLevels).Error; err != nil {
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch user education levels", err)
+	type EducationLevel struct {
+		LevelName string `json:"level_name"`
 	}
 
-	return helpers.HandleSuccess(c, fiber.StatusOK, "User education levels retrieved successfully", educationLevels)
+	var educationLevels []EducationLevel
+
+	educationQuery := `SELECT level_name FROM education_levels`
+
+	if err := db.Raw(educationQuery).Scan(&educationLevels).Error; err != nil {
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch all education levels", err)
+	}
+
+	return helpers.HandleSuccess(c, fiber.StatusOK, "All education levels retrieved successfully", educationLevels)
 }
 
-func GetColleges(c *fiber.Ctx) error {
+func GetAllColleges(c *fiber.Ctx) error {
 	db := database.DB
-	userID := c.Locals("user_id").(string)
 
-	collegeQuery := `SELECT c.college_name
-	                 FROM users u
-	                 JOIN colleges c ON u.college_name_id = c.id
-	                 WHERE u.id = ?`
-
-	var colleges []string
-	if err := db.Raw(collegeQuery, userID).Scan(&colleges).Error; err != nil {
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch user colleges", err)
+	type College struct {
+		CollegeName string `json:"college_name"`
 	}
 
-	return helpers.HandleSuccess(c, fiber.StatusOK, "User colleges retrieved successfully", colleges)
+	var colleges []College
+
+	collegeQuery := `SELECT college_name FROM colleges`
+
+	if err := db.Raw(collegeQuery).Scan(&colleges).Error; err != nil {
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch all colleges", err)
+	}
+
+	return helpers.HandleSuccess(c, fiber.StatusOK, "All colleges retrieved successfully", colleges)
 }

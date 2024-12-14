@@ -15,7 +15,7 @@ type User struct {
 	ProfilePhotoSize        int       `gorm:"column:profile_pic_size;type:int;not null;default:0" json:"profile_photo_size"`
 	ProfilePhotoStoragePath string    `gorm:"column:profile_pic_storage_path;type:text;not null" json:"profile_photo_storage_path"`
 	LocationID              uuid.UUID `gorm:"column:location_id;type:uuid;not null" json:"location_id"`
-	EducationLevel      	string    `gorm:"-" json:"education_level"`
+	EducationLevel          string    `gorm:"-" json:"education_level"`
 	EducationLevelID        uuid.UUID `gorm:"column:education_level_id;type:uuid;not null" json:"education_level_id"`
 	FieldOfStudyID          uuid.UUID `gorm:"column:field_of_study_id;type:uuid;not null" json:"field_of_study_id"`
 	CollegeNameID           uuid.UUID `gorm:"column:college_name_id;type:uuid;not null" json:"college_name_id"`

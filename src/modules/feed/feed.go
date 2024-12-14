@@ -222,7 +222,7 @@ func GetEnhancedFeedPosts(userID uuid.UUID, connections, excludedPosts []string,
 	log.Printf("Retrieved filtered posts: %+v\n", posts)
 	return posts, nil
 }
-    
+
 func deduplicatePosts(posts []models.Post) []models.Post {
 	seen := make(map[string]bool)
 	uniquePosts := []models.Post{}

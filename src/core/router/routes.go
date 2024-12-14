@@ -7,8 +7,8 @@ import (
 	"Backend/src/modules/events"
 	"Backend/src/modules/feed"
 	"Backend/src/modules/posts"
-	"Backend/src/modules/users"
 	"Backend/src/modules/questions"
+	"Backend/src/modules/users"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -59,12 +59,12 @@ func setupAPIV1Routes(router fiber.Router) {
 	// userGroup.Post("/update-skill-interest", middleware.Protected(), users.UpdateUserSkillsAndInterests)
 	userGroup.Post("/follow", middleware.Protected(), connection.Follow)
 	userGroup.Post("/check-connection", middleware.Protected(), connection.ConnectionCheck)
-	userGroup.Get("/location", middleware.Protected(), users.GetLocations)
-	userGroup.Get("/skills", middleware.Protected(), users.GetSkills)
-	userGroup.Get("/interests", middleware.Protected(), users.GetInterests)
-	userGroup.Get("/education-level", middleware.Protected(), users.GetEducationLevels)
-	userGroup.Get("/fields-of-study", middleware.Protected(), users.GetFieldsOfStudy)
-	userGroup.Get("/college", middleware.Protected(), users.GetColleges)
+	userGroup.Get("/location", middleware.Protected(), users.GetAllLocationNames)
+	userGroup.Get("/skills", middleware.Protected(), users.GetAllSkills)
+	userGroup.Get("/interests", middleware.Protected(), users.GetAllInterests)
+	userGroup.Get("/education-level", middleware.Protected(), users.GetAllFieldsOfStudy)
+	userGroup.Get("/fields-of-study", middleware.Protected(), users.GetAllEducationLevels)
+	userGroup.Get("/college", middleware.Protected(), users.GetAllColleges)
 
 	postGroup.Post("/post", middleware.Protected(), posts.CreatePost)
 	postGroup.Post("/like", middleware.Protected(), posts.CreateLike)
@@ -82,10 +82,10 @@ func setupAPIV1Routes(router fiber.Router) {
 	eventGroup.Get("/workshopsfeed", middleware.Protected(), events.GetWorkshopsFeed)
 	eventGroup.Get("/projectsfeed", middleware.Protected(), events.GetProjectsFeed)
 
-	questionGroup.Get("/daily",middleware.Protected(),questions.GetDailyQuestions)
-	questionGroup.Get("/skill",middleware.Protected(),questions.GetSkillQuestions)
-	questionGroup.Get("/bonus",middleware.Protected(),questions.GetBonusQuestions)
-	questionGroup.Post("/submit",middleware.Protected(),questions.SubmitAnswer)
+	questionGroup.Get("/daily", middleware.Protected(), questions.GetDailyQuestions)
+	questionGroup.Get("/skill", middleware.Protected(), questions.GetSkillQuestions)
+	questionGroup.Get("/bonus", middleware.Protected(), questions.GetBonusQuestions)
+	questionGroup.Post("/submit", middleware.Protected(), questions.SubmitAnswer)
 
 	// // Feed routes
 	feedGroup.Get("/", middleware.Protected(), feed.FetchFeed)
