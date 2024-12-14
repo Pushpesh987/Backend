@@ -21,8 +21,8 @@ func Follow(c *fiber.Ctx) error {
 	if !ok || userId == "" {
 		return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid or missing user_id", nil)
 	}
-    userID, err := uuid.Parse(userId)
-    if err != nil {
+	userID, err := uuid.Parse(userId)
+	if err != nil {
 		log.Printf("Error parsing user ID as UUID: %v\n", err)
 		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid user ID format", err)
 	}
@@ -60,8 +60,8 @@ func ConnectionCheck(c *fiber.Ctx) error {
 	if !ok || userId == "" {
 		return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid or missing user_id", nil)
 	}
-    userID, err := uuid.Parse(userId)
-    if err != nil {
+	userID, err := uuid.Parse(userId)
+	if err != nil {
 		log.Printf("Error parsing user ID as UUID: %v\n", err)
 		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid user ID format", err)
 	}

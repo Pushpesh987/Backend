@@ -6,12 +6,12 @@ import (
 	"Backend/src/core/helpers"
 	"Backend/src/core/models"
 	"fmt"
-	"log"
-	"time"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"log"
+	"time"
 )
 
 func issueJwtToken(authID string, userID string, email string) (string, error) {
@@ -83,7 +83,7 @@ func SignUp(c *fiber.Ctx) error {
 		UserID:  user.ID,
 		BadgeID: 1,
 	}
-	
+
 	if err := db.Create(&userBadge).Error; err != nil {
 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to assign badge to user", err)
 	}
@@ -127,18 +127,11 @@ func SignIn(c *fiber.Ctx) error {
 	}
 
 	token, err := issueJwtToken(fetchedUser.ID.String(),
-	 user.ID.String(), 
-	 fetchedUser.Email)
+		user.ID.String(),
+		fetchedUser.Email)
 	if err != nil {
 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to generate token", err)
 	}
 
 	return helpers.HandleSuccess(c, fiber.StatusOK, "Sign-in successful", fiber.Map{"token": token})
 }
-
-
-
-
-
-
-

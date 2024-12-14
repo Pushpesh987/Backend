@@ -90,6 +90,3 @@ func SubmitAnswer(c *fiber.Ctx) error {
 
 	return helpers.HandleSuccess(c, fiber.StatusCreated, "Answer submitted successfully", quizAttempt)
 }
-
-
-
