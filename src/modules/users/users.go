@@ -635,3 +635,63 @@ func SearchUsers(c *fiber.Ctx) error {
 
     return helpers.HandleSuccess(c, fiber.StatusOK, "Search completed successfully", results)
 }
+
+func GetProfileByID(c *fiber.Ctx) error {
+    db := database.DB
+    userID := c.Params("id") 
+
+    if userID == "" {
+        return helpers.HandleError(c, fiber.StatusBadRequest, "User ID is required", nil)
+    }
+
+    profileQuery := `SELECT u.*, 
+                            COALESCE(l.name, '') AS location_name, 
+                            COALESCE(e.level_name, '') AS education_level, 
+                            COALESCE(f.field_name, '') AS field_of_study, 
+                            COALESCE(c.college_name, '') AS college_name 
+                     FROM users u
+                     LEFT JOIN locations l ON u.location_id = l.id
+                     LEFT JOIN education_levels e ON u.education_level_id = e.id
+                     LEFT JOIN fields_of_study f ON u.field_of_study_id = f.id
+                     LEFT JOIN colleges c ON u.college_name_id = c.id
+                     WHERE u.id = ?`
+
+    profile := struct {
+        models.User
+        LocationName   string   `json:"location_name"`
+        EducationLevel string   `json:"education_level"`
+        FieldOfStudy   string   `json:"field_of_study"`
+        CollegeName    string   `json:"college_name"`
+        Skills         []string `json:"skills"`
+        Interests      []string `json:"interests"`
+    }{}
+
+    if err := db.Raw(profileQuery, userID).Scan(&profile).Error; err != nil {
+        return helpers.HandleError(c, fiber.StatusNotFound, "User profile not found", err)
+    }
+
+    skillQuery := `SELECT s.skill_name 
+                   FROM user_skills us
+                   JOIN skills s ON us.skill_id = s.skill_id
+                   WHERE us.user_id = ?`
+
+    var skills []string
+    if err := db.Raw(skillQuery, userID).Scan(&skills).Error; err != nil {
+        return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch user skills", err)
+    }
+    profile.Skills = skills
+
+    interestQuery := `SELECT i.interest_name 
+                      FROM user_interests ui
+                      JOIN interests i ON ui.interest_id = i.interest_id
+                      WHERE ui.user_id = ?`
+
+    var interests []string
+    if err := db.Raw(interestQuery, userID).Scan(&interests).Error; err != nil {
+        return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch user interests", err)
+    }
+    profile.Interests = interests
+
+    return helpers.HandleSuccess(c, fiber.StatusOK, "User profile retrieved successfully", profile)
+}
+

@@ -74,7 +74,8 @@ func setupAPIV1Routes(router fiber.Router) {
 	userGroup.Get("/fields-of-study", middleware.Protected(), users.GetAllEducationLevels)
 	userGroup.Get("/college", middleware.Protected(), users.GetAllColleges)
 	userGroup.Get("/search",users.SearchUsers)
-
+	userGroup.Get("/profile/:id",middleware.Protected(),users.GetProfileByID)
+	
 	postGroup.Post("/post", middleware.Protected(), posts.CreatePost)
 	postGroup.Post("/like", middleware.Protected(), posts.CreateLike)
 	postGroup.Post("/comment", middleware.Protected(), posts.CreateComment)
