@@ -21,60 +21,72 @@ import (
 )
 
 func CreateEvent(c *fiber.Ctx) error {
-	db := database.DB
+    db := database.DB
 
-	userId, ok := c.Locals("user_id").(string)
-	if !ok || userId == "" {
-		log.Println("Invalid or missing userID")
-		return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid or missing auth_id", nil)
+    // Retrieve user ID
+    userId, ok := c.Locals("user_id").(string)
+    if !ok || userId == "" {
+        log.Println("Invalid or missing userID")
+        return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid or missing auth_id", nil)
+    }
+
+    userID, err := uuid.Parse(userId)
+    if err != nil {
+        log.Printf("Error parsing user ID as UUID: %v\n", err)
+        return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid user ID format", err)
+    }
+
+    // Initialize Event struct
+    body := new(models.Event)
+    body.UserID = userID
+
+    // Parse form-data
+    form, err := c.MultipartForm()
+    if err != nil {
+        return helpers.HandleError(c, fiber.StatusBadRequest, "Failed to parse form data", err)
+    }
+
+    // Assign fields from form-data
+    body.Title = form.Value["title"][0]
+    body.Theme = form.Value["theme"][0]
+    body.Description = form.Value["description"][0]
+    body.Location = form.Value["location"][0]
+    body.OrganizerName = form.Value["organizer_name"][0]
+    body.OrganizerContact = form.Value["organizer_contact"][0]
+	body.Status = form.Value["status"][0]
+    if count, err := strconv.Atoi(form.Value["attendee_count"][0]); err == nil {
+        body.AttendeeCount = count
+    }
+	if len(form.Value["tags"]) > 0 {
+		body.Tags = form.Value["tags"][0]
 	}
 
-	userID, err := uuid.Parse(userId)
-	if err != nil {
-		log.Printf("Error parsing user ID as UUID: %v\n", err)
-		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid user ID format", err)
-	}
-	fmt.Println("Retrieved userID:", userID)
+    // Handle media upload
+    files := form.File["media"]
+    if len(files) > 0 {
+        mediaFile := files[0]
+        file, err := mediaFile.Open()
+        if err != nil {
+            return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to open media file", err)
+        }
+        defer file.Close()
 
-	body := new(models.Event)
-	body.UserID = userID
+        publicURL, err := uploadToSupabase(mediaFile.Filename, file)
+        if err != nil {
+            return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to upload media to Supabase", err)
+        }
+        body.Media = publicURL
+    }
 
-	if err := c.BodyParser(body); err != nil {
-		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid input data", err)
-	}
+    // Insert into database
+    if result := db.Create(&body); result.Error != nil {
+        if err := deleteFileFromSupabase(body.Media); err != nil {
+            log.Printf("Failed to delete media file after event creation failure: %v\n", err)
+        }
+        return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to create event", result.Error)
+    }
 
-	form, err := c.MultipartForm()
-	if err != nil {
-		return helpers.HandleError(c, fiber.StatusBadRequest, "Failed to parse form data", err)
-	}
-	files := form.File["media"]
-	var mediaURL string
-	if len(files) > 0 {
-		mediaFile := files[0]
-
-		file, err := mediaFile.Open()
-		if err != nil {
-			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to open media file", err)
-		}
-		defer file.Close()
-
-		publicURL, err := uploadToSupabase(mediaFile.Filename, file)
-		if err != nil {
-			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to upload media to Supabase", err)
-		}
-
-		body.Media = publicURL
-		mediaURL = publicURL
-	}
-	log.Printf("mediaURL: %v", mediaURL)
-	if result := db.Create(&body); result.Error != nil {
-		if err := deleteFileFromSupabase(body.Media); err != nil {
-			log.Printf("Failed to delete media file after event creation failure: %v\n", err)
-		}
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to create event", result.Error)
-	}
-
-	return helpers.HandleSuccess(c, fiber.StatusCreated, "Event created successfully", body)
+    return helpers.HandleSuccess(c, fiber.StatusCreated, "Event created successfully", body)
 }
 
 func CreateWorkshop(c *fiber.Ctx) error {
@@ -177,61 +189,72 @@ func CreateWorkshop(c *fiber.Ctx) error {
 	return helpers.HandleSuccess(c, fiber.StatusCreated, "Workshop created successfully", body)
 }
 
-
 func CreateProject(c *fiber.Ctx) error {
-	db := database.DB
+    db := database.DB
 
-	userId, ok := c.Locals("user_id").(string)
-	if !ok || userId == "" {
-		log.Println("Invalid or missing userId")
-		return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid or missing user_id", nil)
-	}
+    userId, ok := c.Locals("user_id").(string)
+    if !ok || userId == "" {
+        log.Println("Invalid or missing userId")
+        return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid or missing user_id", nil)
+    }
 
-	userID, err := uuid.Parse(userId)
-	if err != nil {
-		log.Printf("Error parsing user ID as UUID: %v\n", err)
-		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid user ID format", err)
-	}
-	fmt.Println("Retrieved userID:", userID)
+    userID, err := uuid.Parse(userId)
+    if err != nil {
+        log.Printf("Error parsing user ID as UUID: %v\n", err)
+        return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid user ID format", err)
+    }
 
-	body := new(models.Project)
-	body.UserID = userID
-	if err := c.BodyParser(body); err != nil {
-		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid input data", err)
-	}
-	form, err := c.MultipartForm()
-	if err != nil {
-		return helpers.HandleError(c, fiber.StatusBadRequest, "Failed to parse form data", err)
-	}
-	files := form.File["media"]
-	var mediaURL string
-	if len(files) > 0 {
-		mediaFile := files[0]
+    body := new(models.Project)
+    body.UserID = userID
 
-		file, err := mediaFile.Open()
-		if err != nil {
-			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to open media file", err)
-		}
-		defer file.Close()
+    if err := c.BodyParser(body); err != nil {
+        return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid input data", err)
+    }
 
-		publicURL, err := uploadToSupabaseProjects(mediaFile.Filename, file)
-		if err != nil {
-			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to upload media to Supabase", err)
-		}
+    form, err := c.MultipartForm()
+    if err != nil {
+        return helpers.HandleError(c, fiber.StatusBadRequest, "Failed to parse form data", err)
+    }
 
-		body.Media = publicURL
-		mediaURL = publicURL
-	}
-	log.Printf("mediaURL: %v", mediaURL)
+    log.Printf("Form values: %v", form.Value)  
 
-	if result := db.Create(&body); result.Error != nil {
-		if err := deleteFileFromSupabase(body.Media); err != nil {
-			log.Printf("Failed to delete media file after project creation failure: %v\n", err)
-		}
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to create project", result.Error)
-	}
+    if len(form.Value["team_members"]) > 0 {
+        body.TeamMembers = form.Value["team_members"][0]
+    }
+    if len(form.Value["project_link"]) > 0 {
+        body.ProjectLink = form.Value["project_link"][0]
+    }
 
-	return helpers.HandleSuccess(c, fiber.StatusCreated, "Project created successfully", body)
+    files := form.File["media"]
+    var mediaURL string
+    if len(files) > 0 {
+        mediaFile := files[0]
+
+        file, err := mediaFile.Open()
+        if err != nil {
+            return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to open media file", err)
+        }
+        defer file.Close()
+
+        publicURL, err := uploadToSupabaseProjects(mediaFile.Filename, file)
+        if err != nil {
+            return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to upload media to Supabase", err)
+        }
+
+        body.Media = publicURL
+        mediaURL = publicURL
+    }
+
+    log.Printf("mediaURL: %v", mediaURL)
+
+    if result := db.Create(&body); result.Error != nil {
+        if err := deleteFileFromSupabase(body.Media); err != nil {
+            log.Printf("Failed to delete media file after project creation failure: %v\n", err)
+        }
+        return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to create project", result.Error)
+    }
+
+    return helpers.HandleSuccess(c, fiber.StatusCreated, "Project created successfully", body)
 }
 
 func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
