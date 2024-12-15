@@ -2,23 +2,25 @@ package router
 
 import (
 	"Backend/src/core/middleware"
+	"Backend/src/modules/IoT_logs"
 	"Backend/src/modules/authentication"
 	"Backend/src/modules/communities"
 	connection "Backend/src/modules/connections"
 	"Backend/src/modules/events"
 	"Backend/src/modules/feed"
+	"Backend/src/modules/messages"
+	"Backend/src/modules/notifications"
 	"Backend/src/modules/posts"
 	"Backend/src/modules/questions"
-	"Backend/src/modules/messages"
-	"Backend/src/modules/IoT_logs"
 
 	// "Backend/src/modules/communities"
 	"Backend/src/modules/users"
 	"fmt"
 	"sort"
-
+	"github.com/gofiber/websocket/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+
 )
 
 func InitialiseAndSetupRoutes(app *fiber.App) {
@@ -52,6 +54,7 @@ func setupAPIV1Routes(router fiber.Router) {
 	questionGroup := router.Group("/question")
 	communityGroup :=router.Group("/communities")
 	iotlogsGroup :=router.Group("/iotlogs")
+	notificationsGroup :=router.Group("/notification")
 	// messagesGroup := router.Group("/messages")
 
 	// Authentication routes
@@ -108,6 +111,8 @@ func setupAPIV1Routes(router fiber.Router) {
 	communityGroup.Get("/:id/messages/ws", middleware.Protected(), messages.WebSocketHandler)
 
 	iotlogsGroup.Post("/",iotlogs.CreateIotLog)
+
+	notificationsGroup.Get("/ws",websocket.New(notifications.NotificationWebSocketHandler))
 
 	// // Feed routes
 	feedGroup.Get("/", middleware.Protected(), feed.FetchFeed)
