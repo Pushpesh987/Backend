@@ -24,21 +24,22 @@ type Event struct {
 	Status               string    `json:"status" gorm:"type:varchar(20);not null"`
 }
 type Workshop struct {
-	ID               uuid.UUID `json:"id" gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
-	UserID           uuid.UUID `json:"user_id" gorm:"type:uuid"`
-	Title            string    `json:"title" gorm:"type:varchar(255);not null"`
-	Description      string    `json:"description" gorm:"type:text"`
-	Date             time.Time `json:"date" gorm:"type:timestamp;not null"`
-	Location         string    `json:"location" gorm:"type:varchar(255)"`
-	Media            string    `json:"media" gorm:"type:varchar(255)"`
-	EntryFee         float64   `json:"entry_fee" gorm:"type:decimal(10,2)"`
-	Duration         string    `gorm:"column:duration"`
-	InstructorInfo   string    `json:"instructor_info" gorm:"type:varchar(255)"`
-	Tags             string    `json:"tags" gorm:"type:varchar(255)"`
-	ParticipantLimit int       `json:"participant_limit" gorm:"type:int"`
-	Status           string    `json:"status" gorm:"type:varchar(20);not null"`
-	RegistrationLink string    `json:"registration_link" gorm:"type:varchar(255)"`
+    ID               uuid.UUID `json:"id" gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+    UserID           uuid.UUID `json:"user_id" gorm:"type:uuid"`
+    Title            string    `json:"title" gorm:"type:varchar(255);not null"`
+    Description      string    `json:"description" gorm:"type:text"`
+    Date             time.Time `json:"date" gorm:"type:timestamp;not null"`
+    Location         string    `json:"location" gorm:"type:varchar(255)"`
+    Media            string    `json:"media" gorm:"type:text"`
+    EntryFee         string    `json:"entry_fee" gorm:"type:decimal(10,2)"` // Represented as a string, could also be float64 if you need arithmetic
+    Duration         string    `gorm:"column:duration""`
+    InstructorInfo   string    `json:"instructor_info" gorm:"type:text"`
+    Tags             string    `json:"tags" gorm:"type:varchar(255)"`
+    ParticipantLimit int       `json:"participant_limit" gorm:"type:int"` // Changed to int
+    Status           string    `json:"status" gorm:"type:workshop_status;not null"` // Enum values
+    RegistrationLink string    `json:"registration_link" gorm:"type:text"`
 }
+
 type Project struct {
 	ID          uuid.UUID `json:"id" gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
 	UserID      uuid.UUID `json:"user_id" gorm:"type:uuid"`

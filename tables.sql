@@ -255,20 +255,20 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS workshops (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
     title VARCHAR(255) NOT NULL,
-    description TEXT,
+    description TEXT NULL,
     date TIMESTAMP NOT NULL,
-    location VARCHAR(255),
-    media VARCHAR(255),
-    entry_fee DECIMAL(10, 2),
-    duration INTERVAL,
-    instructor_info VARCHAR(255),
-    tags VARCHAR(255),
-    participant_limit INT,
+    location VARCHAR(255) NULL,
+    media TEXT NULL,
+    entry_fee DECIMAL(10, 2) NULL,  
+    duration VARCHAR(255) NULL,
+    instructor_info TEXT NULL,
+    tags VARCHAR(255) NULL,
+    participant_limit INT NULL,   
     status workshop_status NOT NULL,
-    registration_link VARCHAR(255),
+    registration_link TEXT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 

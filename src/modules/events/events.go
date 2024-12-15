@@ -7,14 +7,17 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
-	"gorm.io/gorm"
 	"io"
 	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 func CreateEvent(c *fiber.Ctx) error {
@@ -77,6 +80,7 @@ func CreateEvent(c *fiber.Ctx) error {
 func CreateWorkshop(c *fiber.Ctx) error {
 	db := database.DB
 
+	// Extract and validate user ID from context
 	userId, ok := c.Locals("user_id").(string)
 	if !ok || userId == "" {
 		log.Println("Invalid or missing userID")
@@ -89,29 +93,62 @@ func CreateWorkshop(c *fiber.Ctx) error {
 		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid user ID format", err)
 	}
 	fmt.Println("Retrieved userID:", userID)
-	body := new(models.Workshop)
-	body.UserID = userID
 
-	if err := c.BodyParser(body); err != nil {
-		return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid input data", err)
-	}
-
-	if body.Duration != "" {
-		parsedDuration := body.Duration
-		log.Printf("Parsed duration: %v", parsedDuration)
-	} else {
-		log.Println("Duration not provided")
-	}
-
+	// Parse form-data
 	form, err := c.MultipartForm()
 	if err != nil {
 		return helpers.HandleError(c, fiber.StatusBadRequest, "Failed to parse form data", err)
 	}
+
+	// Map form-data fields to the Workshop struct
+	body := new(models.Workshop)
+	body.UserID = userID
+
+	// Required fields
+	body.Title = form.Value["title"][0]
+	body.Date, _ = time.Parse(time.RFC3339, form.Value["date"][0]) // Parse date (format: YYYY-MM-DDTHH:MM:SSZ)
+	body.Status = form.Value["status"][0]
+
+	// Optional fields
+	if len(form.Value["description"]) > 0 {
+		body.Description = form.Value["description"][0]
+	}
+	if len(form.Value["duration"]) > 0 {
+		body.Duration = form.Value["duration"][0]
+	}	
+	if len(form.Value["location"]) > 0 {
+		body.Location = form.Value["location"][0]
+	}
+	if len(form.Value["entry_fee"]) > 0 {
+		body.EntryFee = form.Value["entry_fee"][0]
+	}
+	if len(form.Value["instructor_info"]) > 0 {
+		body.InstructorInfo = form.Value["instructor_info"][0]
+	}
+	if len(form.Value["participant_limit"]) > 0 {
+		// Convert the string to int
+		participantLimitStr := form.Value["participant_limit"][0]
+		participantLimit, err := strconv.Atoi(participantLimitStr)
+		if err != nil {
+			log.Println("Error converting participant_limit to int:", err)
+			return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid participant_limit", err)
+		}
+	
+		// Assign the converted integer value to the struct field
+		body.ParticipantLimit = participantLimit
+	}
+	
+	if len(form.Value["tags"]) > 0 {
+		body.Tags = form.Value["tags"][0]
+	}
+	if len(form.Value["registration_link"]) > 0 {
+		body.RegistrationLink = form.Value["registration_link"][0]
+	}
+
+	// Handle media file upload (if provided)
 	files := form.File["media"]
-	var mediaURL string
 	if len(files) > 0 {
 		mediaFile := files[0]
-
 		file, err := mediaFile.Open()
 		if err != nil {
 			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to open media file", err)
@@ -124,19 +161,22 @@ func CreateWorkshop(c *fiber.Ctx) error {
 		}
 
 		body.Media = publicURL
-		mediaURL = publicURL
+		log.Printf("Media uploaded successfully: %s", publicURL)
 	}
-	log.Printf("mediaURL: %v", mediaURL)
 
+	// Save to database
 	if result := db.Create(&body); result.Error != nil {
-		if err := deleteFileFromSupabase(body.Media); err != nil {
-			log.Printf("Failed to delete media file after workshop creation failure: %v\n", err)
+		if body.Media != "" {
+			if err := deleteFileFromSupabase(body.Media); err != nil {
+				log.Printf("Failed to delete media file after workshop creation failure: %v\n", err)
+			}
 		}
 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to create workshop", result.Error)
 	}
 
 	return helpers.HandleSuccess(c, fiber.StatusCreated, "Workshop created successfully", body)
 }
+
 
 func CreateProject(c *fiber.Ctx) error {
 	db := database.DB

@@ -167,7 +167,7 @@ func capitalizeWords(s string) string {
 	return strings.Join(words, " ")
 }
 
-func UpdateProfile(c *fiber.Ctx) error {
+func UpdateProfile(c *fiber.Ctx) error { 
 	userID := c.Locals("user_id")
 	if userID == nil {
 		return helpers.HandleError(c, fiber.StatusUnauthorized, "User ID not found in context", nil)

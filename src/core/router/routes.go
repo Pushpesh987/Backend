@@ -10,6 +10,7 @@ import (
 	"Backend/src/modules/posts"
 	"Backend/src/modules/questions"
 	"Backend/src/modules/messages"
+	"Backend/src/modules/IoT_logs"
 
 	// "Backend/src/modules/communities"
 	"Backend/src/modules/users"
@@ -50,6 +51,7 @@ func setupAPIV1Routes(router fiber.Router) {
 	eventGroup := router.Group("/events")
 	questionGroup := router.Group("/question")
 	communityGroup :=router.Group("/communities")
+	iotlogsGroup :=router.Group("/iotlogs")
 	// messagesGroup := router.Group("/messages")
 
 	// Authentication routes
@@ -79,7 +81,7 @@ func setupAPIV1Routes(router fiber.Router) {
 	postGroup.Post("/share", middleware.Protected(), posts.CreateShare)
 
 	eventGroup.Post("/event", middleware.Protected(), events.CreateEvent)
-	eventGroup.Post("/eventorkshop", middleware.Protected(), events.CreateWorkshop)
+	eventGroup.Post("/workshop", middleware.Protected(), events.CreateWorkshop)
 	eventGroup.Post("/project", middleware.Protected(), events.CreateProject)
 	eventGroup.Get("/event/:id", middleware.Protected(), events.GetEventByID)
 	eventGroup.Get("/workshop/:id", middleware.Protected(), events.GetWorkshopByID)
@@ -102,6 +104,8 @@ func setupAPIV1Routes(router fiber.Router) {
 	communityGroup.Get("/:id/messages", middleware.Protected(), communities.GetCommunityMessages)
 	communityGroup.Post("/:id/messages", middleware.Protected(), messages.SendMessage)
 	communityGroup.Get("/:id/messages/ws", middleware.Protected(), messages.WebSocketHandler)
+
+	iotlogsGroup.Post("/",iotlogs.CreateIotLog)
 
 	// // Feed routes
 	feedGroup.Get("/", middleware.Protected(), feed.FetchFeed)
