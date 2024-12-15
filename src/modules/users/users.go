@@ -605,3 +605,33 @@ func GetAllColleges(c *fiber.Ctx) error {
 
 	return helpers.HandleSuccess(c, fiber.StatusOK, "All colleges retrieved successfully", colleges)
 }
+
+func SearchUsers(c *fiber.Ctx) error {
+    db := database.DB
+
+    searchQuery := c.Query("query", "")
+    if searchQuery == "" {
+        return helpers.HandleError(c, fiber.StatusBadRequest, "Search query is required", nil)
+    }
+
+    searchTerm := "%" + searchQuery + "%"
+
+	var results []struct {
+        UserID   uuid.UUID `json:"id" gorm:"column:id"`  
+        Username string    `json:"username" gorm:"column:username"` 
+    }
+
+    result := db.Table("users").Select("id, username").
+        Where("LOWER(first_name) LIKE ? OR LOWER(username) LIKE ? OR LOWER(email) LIKE ?", 
+        searchTerm, searchTerm, searchTerm).Find(&results)
+
+    if result.Error != nil {
+        return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch search results", result.Error)
+    }
+
+    if len(results) == 0 {
+        return helpers.HandleError(c, fiber.StatusNotFound, "No matching users found", nil)
+    }
+
+    return helpers.HandleSuccess(c, fiber.StatusOK, "Search completed successfully", results)
+}
