@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -110,7 +111,7 @@ func UploadProfilePhoto(c *fiber.Ctx) error {
 
 func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
 	bucketName := "file-buckets"
-	folderName := "profile-photos"
+	folderName := "profile-photos" // The folder name where files should be uploaded
 	apiURL := os.Getenv("STORAGE_URL")
 	authToken := "Bearer " + os.Getenv("SERVICE_ROLE_SECRET")
 
@@ -130,6 +131,7 @@ func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
 	}
 	writer.Close()
 
+	// Ensure the path includes the folder correctly
 	objectPath := fmt.Sprintf("%s/%s", folderName, fileName)
 	requestURL := fmt.Sprintf("%s/object/%s/%s", apiURL, bucketName, objectPath)
 
@@ -176,19 +178,19 @@ func UpdateProfile(c *fiber.Ctx) error {
 	}
 
 	type UpdateProfileRequest struct {
-		FirstName       string   `json:"first_name"`
-		LastName        string   `json:"last_name"`
-		Phone           string   `json:"phone"`
-		ProfilePhotoURL string   `json:"profile_pic_url"`
-		Gender          string   `json:"gender"`
-		DOB             string   `json:"dob"`
-		Age             int      `json:"age"`
-		Skills          []string `json:"skills"`
-		Interests       []string `json:"interests"`
-		Location        string   `json:"location_name"`
-		EducationLevel  string   `json:"education_level"`
-		FieldOfStudy    string   `json:"field_of_study"`
-		CollegeName     string   `json:"college_name"`
+		FirstName      string   `json:"first_name"`
+		LastName       string   `json:"last_name"`
+		Username       string   `json:username`
+		Phone          string   `json:"phone"`
+		Gender         string   `json:"gender"`
+		Dob            time.Time   `json:"dob"`
+		Age            int      `json:"age"`
+		Skills         []string `json:"skills"`
+		Interests      []string `json:"interests"`
+		Location       string   `json:"location_name"`
+		EducationLevel string   `json:"education_level"`
+		FieldOfStudy   string   `json:"field_of_study"`
+		CollegeName    string   `json:"college_name"`
 	}
 
 	var request UpdateProfileRequest
@@ -207,52 +209,53 @@ func UpdateProfile(c *fiber.Ctx) error {
 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Database error", err)
 	}
 
-	if request.FirstName != "" {
-		user.FirstName = request.FirstName
-	}
-	if request.LastName != "" {
-		user.LastName = request.LastName
-	}
-	if request.Phone != "" {
-		user.Phone = request.Phone
-	}
-	if request.ProfilePhotoURL != "" {
-		user.ProfilePhotoURL = request.ProfilePhotoURL
-	}
-	if request.Gender != "" {
-		user.Gender = request.Gender
-	}
-	if request.DOB != "" {
-		dob, err := time.Parse("2006-01-02", request.DOB)
-		if err != nil {
-			return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid date format for DOB", err)
-		}
-		user.Dob = dob
-	}
-	if request.Age != 0 {
-		user.Age = request.Age
-	}
+if request.FirstName != "" {
+    log.Printf("Updating FirstName: Old Value = %s, New Value = %s", user.FirstName, request.FirstName)
+    user.FirstName = request.FirstName
+    if err := db.Model(&user).Update("first_name", user.FirstName).Error; err != nil {
+        return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update user's first name", err)
+    }
+}
 
-	file, err := c.FormFile("profile_photo")
-	if err == nil {
-		fileContent, err := file.Open()
-		if err != nil {
-			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to open file", err)
-		}
-		defer fileContent.Close()
+if request.LastName != "" {
+    log.Printf("Updating LastName: Old Value = %s, New Value = %s", user.LastName, request.LastName)
+    user.LastName = request.LastName
+    if err := db.Model(&user).Update("last_name", user.LastName).Error; err != nil {
+        return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update user's last name", err)
+    }
+}
 
-		fileName := uuid.New().String() + "-" + file.Filename
-		filePath := fmt.Sprintf("profile-photos/%s", fileName)
+if !request.Dob.IsZero(){
+    log.Printf("Updating DOB: Old Value = %s, New Value = %s", user.Dob, request.Dob)
+    user.Dob = request.Dob
+    if err := db.Model(&user).Update("dob", user.Dob).Error; err != nil {
+        return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update user's date of birth", err)
+    }
+}
 
-		publicURL, err := uploadToSupabase(filePath, fileContent)
-		if err != nil {
-			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to upload file to storage", err)
-		}
+if request.Age != 0 {
+    log.Printf("Updating Age: Old Value = %d, New Value = %d", user.Age, request.Age)
+    user.Age = request.Age
+    if err := db.Model(&user).Update("age", user.Age).Error; err != nil {
+        return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update user's age", err)
+    }
+}
 
-		user.ProfilePhotoURL = publicURL
-		user.ProfilePhotoSize = int(file.Size)
-		user.ProfilePhotoStoragePath = filePath
-	}
+if request.Phone != "" {
+    log.Printf("Updating Phone: Old Value = %s, New Value = %s", user.Phone, request.Phone)
+    user.Phone = request.Phone
+    if err := db.Model(&user).Update("phone", user.Phone).Error; err != nil {
+        return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update user's phone", err)
+    }
+}
+
+if request.Gender != "" {
+    log.Printf("Updating Gender: Old Value = %s, New Value = %s", user.Gender, request.Gender)
+    user.Gender = request.Gender
+    if err := db.Model(&user).Update("gender", user.Gender).Error; err != nil {
+        return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update user's gender", err)
+    }
+}
 
 	if request.Location != "" {
 		request.Location = capitalizeWords(request.Location)
@@ -278,6 +281,7 @@ func UpdateProfile(c *fiber.Ctx) error {
 		if err := db.Model(&user).Update("location_id", location.ID).Error; err != nil {
 			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update user's location information", err)
 		}
+		log.Printf("Location updated: Old LocationID = %v, New LocationID = %v", user.LocationID, location.ID)
 	}
 
 	if request.EducationLevel != "" {
@@ -300,6 +304,7 @@ func UpdateProfile(c *fiber.Ctx) error {
 				return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to retrieve education level information", err)
 			}
 		}
+		log.Printf("EducationLevel updated: Old ID = %v, New ID = %v", user.EducationLevelID, educationLevel.ID)
 
 		if err := db.Model(&user).Update("education_level_id", educationLevel.ID).Error; err != nil {
 			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update user's education level information", err)
@@ -325,6 +330,7 @@ func UpdateProfile(c *fiber.Ctx) error {
 				return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to retrieve field of study information", err)
 			}
 		}
+		log.Printf("FieldOfStudy updated: Old ID = %v, New ID = %v", user.FieldOfStudyID, fieldOfStudy.ID)
 
 		if err := db.Model(&user).Update("field_of_study_id", fieldOfStudy.ID).Error; err != nil {
 			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update user's field of study information", err)
@@ -354,6 +360,11 @@ func UpdateProfile(c *fiber.Ctx) error {
 		if err := db.Model(&user).Update("college_name_id", college.ID).Error; err != nil {
 			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update user's college information", err)
 		}
+		if err := db.Save(&user).Error; err != nil {
+			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to save user after update", err)
+		}
+		log.Printf("CollegeName updated: Old ID = %v, New ID = %v", user.CollegeNameID, college.ID)
+		log.Printf("Updated User: %+v", user)
 	}
 
 	if len(request.Skills) > 0 {
@@ -417,6 +428,7 @@ func UpdateProfile(c *fiber.Ctx) error {
 				return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to remove skills from user", err)
 			}
 		}
+		log.Printf("Skills updated: Adding = %v, Removing = %v", skillsToAdd, skillsToRemove)
 	}
 
 	if len(request.Interests) > 0 {
@@ -480,14 +492,8 @@ func UpdateProfile(c *fiber.Ctx) error {
 				return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to remove interests from user", err)
 			}
 		}
+		log.Printf("Interests updated: Adding = %v, Removing = %v", interestsToAdd, interestsToRemove)
 	}
-
-	err = db.Raw("UPDATE users SET first_name = $1, last_name = $2, phone = $3, profile_photo_url = $4, gender = $5, dob = $6, age = $7 WHERE id = $8",
-		user.FirstName, user.LastName, user.Phone, user.ProfilePhotoURL, user.Gender, user.Dob, user.Age, user.ID).Error
-	if err != nil {
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to update user profile", err)
-	}
-
 	return helpers.HandleSuccess(c, fiber.StatusOK, "User profile updated successfully", user)
 }
 

@@ -79,7 +79,7 @@ func setupAPIV1Routes(router fiber.Router) {
 	postGroup.Post("/share", middleware.Protected(), posts.CreateShare)
 
 	eventGroup.Post("/event", middleware.Protected(), events.CreateEvent)
-	eventGroup.Post("/workshop", middleware.Protected(), events.CreateWorkshop)
+	eventGroup.Post("/eventorkshop", middleware.Protected(), events.CreateWorkshop)
 	eventGroup.Post("/project", middleware.Protected(), events.CreateProject)
 	eventGroup.Get("/event/:id", middleware.Protected(), events.GetEventByID)
 	eventGroup.Get("/workshop/:id", middleware.Protected(), events.GetWorkshopByID)
