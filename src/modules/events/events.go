@@ -12,7 +12,9 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -258,52 +260,58 @@ func CreateProject(c *fiber.Ctx) error {
 }
 
 func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
-	bucketName := "file-buckets"
-	folderName := "events"
-	apiURL := os.Getenv("STORAGE_URL")
-	authToken := "Bearer " + os.Getenv("SERVICE_ROLE_SECRET")
+    bucketName := "file-buckets"
+    folderName := "events"
+    apiURL := os.Getenv("STORAGE_URL")
+    authToken := "Bearer " + os.Getenv("SERVICE_ROLE_SECRET")
 
-	if apiURL == "" {
-		return "", fmt.Errorf("STORAGE_URL is not set in the environment variables")
-	}
+    if apiURL == "" {
+        return "", fmt.Errorf("STORAGE_URL is not set in the environment variables")
+    }
 
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", fileName)
-	if err != nil {
-		return "", fmt.Errorf("failed to create multipart file: %w", err)
-	}
-	_, err = io.Copy(part, fileContent)
-	if err != nil {
-		return "", fmt.Errorf("failed to copy file content: %w", err)
-	}
-	writer.Close()
+    // Generate a unique file name using timestamp
+    timestamp := time.Now().UnixNano() // nanosecond precision
+    ext := filepath.Ext(fileName)      // Extract file extension
+    baseName := strings.TrimSuffix(fileName, ext)
+    uniqueFileName := fmt.Sprintf("%s_%d%s", baseName, timestamp, ext)
 
-	objectPath := fmt.Sprintf("%s/%s", folderName, fileName)
-	requestURL := fmt.Sprintf("%s/object/%s/%s", apiURL, bucketName, objectPath)
+    body := &bytes.Buffer{}
+    writer := multipart.NewWriter(body)
+    part, err := writer.CreateFormFile("file", uniqueFileName)
+    if err != nil {
+        return "", fmt.Errorf("failed to create multipart file: %w", err)
+    }
+    _, err = io.Copy(part, fileContent)
+    if err != nil {
+        return "", fmt.Errorf("failed to copy file content: %w", err)
+    }
+    writer.Close()
 
-	req, err := http.NewRequest("POST", requestURL, body)
-	if err != nil {
-		return "", fmt.Errorf("failed to create HTTP request: %w", err)
-	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.Header.Set("Authorization", authToken)
+    objectPath := fmt.Sprintf("%s/%s", folderName, uniqueFileName)
+    requestURL := fmt.Sprintf("%s/object/%s/%s", apiURL, bucketName, objectPath)
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("HTTP request failed: %w", err)
-	}
-	defer resp.Body.Close()
+    req, err := http.NewRequest("POST", requestURL, body)
+    if err != nil {
+        return "", fmt.Errorf("failed to create HTTP request: %w", err)
+    }
+    req.Header.Set("Content-Type", writer.FormDataContentType())
+    req.Header.Set("Authorization", authToken)
 
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		fmt.Println("Upload failed. Response Body:", string(respBody))
-		return "", fmt.Errorf("upload failed with status: %s", resp.Status)
-	}
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        return "", fmt.Errorf("HTTP request failed: %w", err)
+    }
+    defer resp.Body.Close()
 
-	publicURL := fmt.Sprintf("%s/object/public/%s/%s", apiURL, bucketName, objectPath)
-	return publicURL, nil
+    if resp.StatusCode != http.StatusOK {
+        respBody, _ := io.ReadAll(resp.Body)
+        fmt.Println("Upload failed. Response Body:", string(respBody))
+        return "", fmt.Errorf("upload failed with status: %s", resp.Status)
+    }
+
+    publicURL := fmt.Sprintf("%s/object/public/%s/%s", apiURL, bucketName, objectPath)
+    return publicURL, nil
 }
 
 func deleteFileFromSupabase(filePath string) error {
@@ -349,9 +357,13 @@ func uploadToSupabaseWorkshop(fileName string, fileContent io.Reader) (string, e
 		return "", fmt.Errorf("STORAGE_URL is not set in the environment variables")
 	}
 
+	// Add timestamp to filename
+	timestamp := time.Now().Unix()
+	uniqueFileName := fmt.Sprintf("%d_%s", timestamp, fileName)
+
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", fileName)
+	part, err := writer.CreateFormFile("file", uniqueFileName)
 	if err != nil {
 		return "", fmt.Errorf("failed to create multipart file: %w", err)
 	}
@@ -361,7 +373,7 @@ func uploadToSupabaseWorkshop(fileName string, fileContent io.Reader) (string, e
 	}
 	writer.Close()
 
-	objectPath := fmt.Sprintf("%s/%s", folderName, fileName)
+	objectPath := fmt.Sprintf("%s/%s", folderName, uniqueFileName)
 	requestURL := fmt.Sprintf("%s/object/%s/%s", apiURL, bucketName, objectPath)
 
 	req, err := http.NewRequest("POST", requestURL, body)
@@ -398,9 +410,13 @@ func uploadToSupabaseProjects(fileName string, fileContent io.Reader) (string, e
 		return "", fmt.Errorf("STORAGE_URL is not set in the environment variables")
 	}
 
+	// Add timestamp to filename
+	timestamp := time.Now().Unix()
+	uniqueFileName := fmt.Sprintf("%d_%s", timestamp, fileName)
+
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", fileName)
+	part, err := writer.CreateFormFile("file", uniqueFileName)
 	if err != nil {
 		return "", fmt.Errorf("failed to create multipart file: %w", err)
 	}
@@ -410,7 +426,7 @@ func uploadToSupabaseProjects(fileName string, fileContent io.Reader) (string, e
 	}
 	writer.Close()
 
-	objectPath := fmt.Sprintf("%s/%s", folderName, fileName)
+	objectPath := fmt.Sprintf("%s/%s", folderName, uniqueFileName)
 	requestURL := fmt.Sprintf("%s/object/%s/%s", apiURL, bucketName, objectPath)
 
 	req, err := http.NewRequest("POST", requestURL, body)
