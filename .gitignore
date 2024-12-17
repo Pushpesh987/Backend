@@ -1,5 +1,0 @@
-.env*
-tmp
-*.json
-*.csv
-scratch-files/*
