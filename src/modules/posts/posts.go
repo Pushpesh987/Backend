@@ -7,13 +7,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"io"
 	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 func CreatePost(c *fiber.Ctx) error {
@@ -176,9 +178,13 @@ func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
 		return "", fmt.Errorf("STORAGE_URL is not set in the environment variables")
 	}
 
+	// Add timestamp to filename
+	timestamp := time.Now().Unix()
+	uniqueFileName := fmt.Sprintf("%d_%s", timestamp, fileName)
+
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", fileName)
+	part, err := writer.CreateFormFile("file", uniqueFileName)
 	if err != nil {
 		return "", fmt.Errorf("failed to create multipart file: %w", err)
 	}
@@ -188,7 +194,7 @@ func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
 	}
 	writer.Close()
 
-	objectPath := fmt.Sprintf("%s/%s", folderName, fileName)
+	objectPath := fmt.Sprintf("%s/%s", folderName, uniqueFileName)
 	requestURL := fmt.Sprintf("%s/object/%s/%s", apiURL, bucketName, objectPath)
 
 	req, err := http.NewRequest("POST", requestURL, body)
@@ -214,6 +220,7 @@ func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
 	publicURL := fmt.Sprintf("%s/object/public/%s/%s", apiURL, bucketName, objectPath)
 	return publicURL, nil
 }
+
 
 func CreateComment(c *fiber.Ctx) error {
 	db := database.DB

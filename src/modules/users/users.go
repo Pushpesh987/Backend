@@ -119,9 +119,13 @@ func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
 		return "", fmt.Errorf("STORAGE_URL is not set in the environment variables")
 	}
 
+	// Add timestamp to filename
+	timestamp := time.Now().Unix()
+	uniqueFileName := fmt.Sprintf("%d_%s", timestamp, fileName)
+
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", fileName)
+	part, err := writer.CreateFormFile("file", uniqueFileName)
 	if err != nil {
 		return "", fmt.Errorf("failed to create multipart file: %w", err)
 	}
@@ -131,8 +135,7 @@ func uploadToSupabase(fileName string, fileContent io.Reader) (string, error) {
 	}
 	writer.Close()
 
-	// Ensure the path includes the folder correctly
-	objectPath := fmt.Sprintf("%s/%s", folderName, fileName)
+	objectPath := fmt.Sprintf("%s/%s", folderName, uniqueFileName)
 	requestURL := fmt.Sprintf("%s/object/%s/%s", apiURL, bucketName, objectPath)
 
 	req, err := http.NewRequest("POST", requestURL, body)
