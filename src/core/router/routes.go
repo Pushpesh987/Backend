@@ -12,7 +12,6 @@ import (
 	"Backend/src/modules/notifications"
 	"Backend/src/modules/posts"
 	"Backend/src/modules/questions"
-
 	// "Backend/src/modules/communities"
 	"Backend/src/modules/users"
 	"fmt"
@@ -20,7 +19,6 @@ import (
 	"github.com/gofiber/websocket/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
-
 )
 
 func InitialiseAndSetupRoutes(app *fiber.App) {
