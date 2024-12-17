@@ -142,5 +142,48 @@ func hasMatchingInterest(user1Interests, user2Interests []models.Interest) bool 
     return false
 }
 
+type IoTLogResponse struct {
+	UserID    string `json:"user_id"`
+	Location  string `json:"location"`
+	Timestamp string `json:"timestamp"`
+	FirstName string `json:"first_name"`
+	Email     string `json:"email"`
+}
+func GetIotLogs(c *fiber.Ctx) error {
+	db := database.DB
 
+	currentUserID := c.Locals("user_id")
+	if currentUserID == nil {
+		log.Println("User ID not found in request context")
+		return helpers.HandleError(c, fiber.StatusUnauthorized, "Unauthorized request", nil)
+	}
 
+	var logs []IoTLogResponse
+
+	query := `
+		SELECT 
+			iot_logs.user_id, 
+			iot_logs.location, 
+			TO_CHAR(iot_logs.timestamp, 'YYYY-MM-DD HH24:MI:SS') AS timestamp, 
+			users.first_name, 
+			users.email
+		FROM 
+			iot_logs
+		JOIN 
+			users 
+		ON 
+			iot_logs.user_id = users.id
+		WHERE 
+			iot_logs.user_id != ?
+		ORDER BY 
+			iot_logs.timestamp ASC
+		LIMIT 5
+	`
+
+	if result := db.Raw(query, currentUserID).Scan(&logs); result.Error != nil {
+		log.Printf("Error fetching IoT logs: %v\n", result.Error)
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch IoT logs", result.Error)
+	}
+
+	return helpers.HandleSuccess(c, fiber.StatusOK, "IoT logs fetched successfully", logs)
+}

@@ -109,6 +109,7 @@ func setupAPIV1Routes(router fiber.Router) {
 	communityGroup.Get("/:id/messages/ws", middleware.Protected(), messages.WebSocketHandler)
 
 	iotlogsGroup.Post("/",iotlogs.CreateIotLog)
+	iotlogsGroup.Get("/",middleware.Protected(),iotlogs.GetIotLogs)
 
 	notificationsGroup.Get("/ws",websocket.New(notifications.NotificationWebSocketHandler))
 
