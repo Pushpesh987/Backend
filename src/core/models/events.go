@@ -11,24 +11,25 @@ type Event struct {
 	Title                string    `json:"title" gorm:"type:varchar(255);not null"`
 	Theme                string    `json:"theme" gorm:"type:varchar(255)"`
 	Description          string    `json:"description" gorm:"type:text"`
-	Date                 time.Time `json:"date" gorm:"type:timestamp;not null"`
+	Date                 time.Time `json:"date" gorm:"type:date;not null"` // Changed to 'date' if time isn't necessary
 	Location             string    `json:"location" gorm:"type:varchar(255)"`
-	EntryFee             float64   `json:"entry_fee" gorm:"type:decimal(10,2)"`
-	PrizePool            float64   `json:"prize_pool" gorm:"type:decimal(10,2)"`
+	EntryFee             int       `json:"entry_fee" gorm:"type:int"`
+	PrizePool            int       `json:"prize_pool" gorm:"type:int"`
 	Media                string    `json:"media" gorm:"type:varchar(255)"`
-	RegistrationDeadline time.Time `json:"registration_deadline" gorm:"type:date"`
+	RegistrationDeadline time.Time `json:"registration_deadline" gorm:"type:date"` // Correct use of 'date' here
 	OrganizerName        string    `json:"organizer_name" gorm:"type:varchar(255)"`
 	OrganizerContact     string    `json:"organizer_contact" gorm:"type:varchar(50)"`
 	Tags                 string    `json:"tags" gorm:"type:varchar(255)"`
 	AttendeeCount        int       `json:"attendee_count" gorm:"type:int"`
 	Status               string    `json:"status" gorm:"type:varchar(20);not null"`
 }
+
 type Workshop struct {
     ID               uuid.UUID `json:"id" gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
     UserID           uuid.UUID `json:"user_id" gorm:"type:uuid"`
     Title            string    `json:"title" gorm:"type:varchar(255);not null"`
     Description      string    `json:"description" gorm:"type:text"`
-    Date             time.Time `json:"date" gorm:"type:timestamp;not null"`
+    Date             time.Time `json:"date" gorm:"type:date;not null"`
     Location         string    `json:"location" gorm:"type:varchar(255)"`
     Media            string    `json:"media" gorm:"type:text"`
     EntryFee         string    `json:"entry_fee" gorm:"type:decimal(10,2)"` // Represented as a string, could also be float64 if you need arithmetic
