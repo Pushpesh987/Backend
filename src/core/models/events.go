@@ -33,7 +33,7 @@ type Workshop struct {
     Location         string    `json:"location" gorm:"type:varchar(255)"`
     Media            string    `json:"media" gorm:"type:text"`
     EntryFee         string    `json:"entry_fee" gorm:"type:decimal(10,2)"` // Represented as a string, could also be float64 if you need arithmetic
-    Duration         string    `gorm:"column:duration""`
+    Duration         string    `gorm:"column:duration"`
     InstructorInfo   string    `json:"instructor_info" gorm:"type:text"`
     Tags             string    `json:"tags" gorm:"type:varchar(255)"`
     ParticipantLimit int       `json:"participant_limit" gorm:"type:int"` // Changed to int

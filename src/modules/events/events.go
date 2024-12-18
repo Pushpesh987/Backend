@@ -81,30 +81,24 @@ func CreateEvent(c *fiber.Ctx) error {
 		body.Tags = form.Value["tags"][0]
 	}
 
-	// Parse date (Handle date without time)
-	if dateStr, ok := form.Value["date"]; ok && len(dateStr) > 0 {
-		parsedDate, err := time.Parse("2006-01-02", dateStr[0]) // Updated format for date only
-		if err == nil {
-			body.Date = parsedDate
+	if len(form.Value["date"]) > 0 {
+		date, err := parseDate(form.Value["date"][0])
+		if err != nil {
+			log.Printf("Error parsing date: %v\n", err)
 		} else {
-			log.Printf("Error converting date: %v\n", err)
+			body.Date = date
 		}
 	}
 
-	// Parse registration_deadline (Ensure it is in valid format before parsing)
-	if regDeadlineStr, ok := form.Value["registration_deadline"]; ok && len(regDeadlineStr) > 0 {
-		// Fix any common mistakes like "1o" -> "10"
-		fixedDeadline := strings.Replace(regDeadlineStr[0], "o", "0", -1)
-
-		parsedDeadline, err := time.Parse("2006-01-02", fixedDeadline) // Use the same format for date without time
-		if err == nil {
-			body.RegistrationDeadline = parsedDeadline
+	if len(form.Value["registration_deadline"]) > 0 {
+		regDeadline := strings.Replace(form.Value["registration_deadline"][0], "o", "0", -1) // Fix common typos
+		deadline, err := parseDate(regDeadline)
+		if err != nil {
+			log.Printf("Error parsing registration_deadline: %v\n", err)
 		} else {
-			log.Printf("Error converting registration_deadline: %v\n", err)
+			body.RegistrationDeadline = deadline
 		}
 	}
-
-	// Handle media upload
 	files := form.File["media"]
 	if len(files) > 0 {
 		mediaFile := files[0]
@@ -268,21 +262,21 @@ func CreateProject(c *fiber.Ctx) error {
 		body.ProjectLink = form.Value["project_link"][0]
 	}
 
-	// Handle start_date
 	if len(form.Value["start_date"]) > 0 {
-		if startDate, err := time.Parse(dateFormat, form.Value["start_date"][0]); err == nil {
-			body.StartDate = startDate
-		} else {
+		startDate, err := parseDate(form.Value["start_date"][0])
+		if err != nil {
 			log.Printf("Error parsing start_date: %v\n", err)
+		} else {
+			body.StartDate = startDate
 		}
 	}
 
-	// Handle end_date
 	if len(form.Value["end_date"]) > 0 {
-		if endDate, err := time.Parse(dateFormat, form.Value["end_date"][0]); err == nil {
-			body.EndDate = endDate
-		} else {
+		endDate, err := parseDate(form.Value["end_date"][0])
+		if err != nil {
 			log.Printf("Error parsing end_date: %v\n", err)
+		} else {
+			body.EndDate = endDate
 		}
 	}
 
@@ -308,9 +302,7 @@ func CreateProject(c *fiber.Ctx) error {
 
 	log.Printf("mediaURL: %v", mediaURL)
 
-	// Create the project in the database
 	if result := db.Create(&body); result.Error != nil {
-		// Clean up Supabase file if project creation fails
 		if err := deleteFileFromSupabase(body.Media); err != nil {
 			log.Printf("Failed to delete media file after project creation failure: %v\n", err)
 		}
@@ -630,4 +622,14 @@ func GetProjectsFeed(c *fiber.Ctx) error {
 		"status":  "success",
 		"message": "Projects feed retrieved successfully",
 	})
+}
+
+func parseDate(dateStr string) (time.Time, error) {
+	if parsedDate, err := time.Parse(time.RFC3339, dateStr); err == nil {
+		return parsedDate, nil
+	}
+	if parsedDate, err := time.Parse("2006-01-02", dateStr); err == nil {
+		return parsedDate, nil
+	}
+	return time.Time{}, fmt.Errorf("invalid date format: %s", dateStr)
 }
