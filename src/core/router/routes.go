@@ -112,7 +112,7 @@ func setupAPIV1Routes(router fiber.Router) {
 	iotlogsGroup.Get("/",middleware.Protected(),iotlogs.GetIotLogs)
 
 	notificationsGroup.Get("/ws",websocket.New(notifications.NotificationWebSocketHandler))
-
+    notificationsGroup.Get("/",middleware.Protected(),messages.GetNotifications)
 	// // Feed routes
 	feedGroup.Get("/", middleware.Protected(), feed.FetchFeed)
 	// feedGroup.Post("/", middleware.Protected(), feed.CreatePost)

@@ -1,8 +1,11 @@
 package notifications
+
 import (
 	"log"
 	"sync"
-	// "github.com/gofiber/fiber/v2"
+	
+
+	// "github.com/gofiber/fiber/v
 	"github.com/gofiber/websocket/v2"
 )
 
@@ -69,3 +72,4 @@ func SendNotification(userID, title, message string) {
 	}
 	notificationBroadcast <- notification
 }
+

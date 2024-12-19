@@ -198,3 +198,33 @@ func SendMessage(c *fiber.Ctx) error {
 
     return helpers.HandleSuccess(c, fiber.StatusCreated, "Message sent successfully", message)
 }
+
+func GetNotifications(c *fiber.Ctx) error {
+    db := database.DB
+    userID := c.Locals("user_id").(string)
+
+    // Ensure user_id exists in the context
+    if userID == "" {
+        return helpers.HandleError(c, fiber.StatusUnauthorized, "Unauthorized: missing user_id", nil)
+    }
+
+    // Define a struct to hold the notifications
+    type NotificationResponse struct {
+        Message   string    `json:"message"`
+        CreatedAt time.Time `json:"created_at"`
+        Category  string    `json:"category"`
+    }
+
+    // Fetch notifications where the user_id matches
+    var notifications []NotificationResponse
+    if err := db.Table("notifications").
+        Select("message, created_at, category").
+        Where("user_id = ?", userID).
+        Order("created_at desc"). // Optional: To show the most recent notifications first
+        Scan(&notifications).Error; err != nil {
+        return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch notifications", err)
+    }
+
+    // Return the fetched notifications
+    return helpers.HandleSuccess(c, fiber.StatusOK, "Notifications fetched successfully", notifications)
+}
