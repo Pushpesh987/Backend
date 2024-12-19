@@ -103,7 +103,7 @@ func setupAPIV1Routes(router fiber.Router) {
 	communityGroup.Get("/:id",middleware.Protected(), communities.GetCommunityDetails)
     communityGroup.Get("/", middleware.Protected(), communities.GetAllCommunities)
 	communityGroup.Post("/:id/leave", middleware.Protected(), communities.LeaveCommunity)
-	communityGroup.Get("/user-joined", middleware.Protected(), communities.GetUserCommunities)
+	communityGroup.Get("/user/joined", middleware.Protected(), communities.GetUserCommunities)
 	communityGroup.Get("/:id/messages", middleware.Protected(), communities.GetCommunityMessages)
 	communityGroup.Post("/:id/messages", middleware.Protected(), messages.SendMessage)
 	communityGroup.Get("/:id/messages/ws", middleware.Protected(), messages.WebSocketHandler)

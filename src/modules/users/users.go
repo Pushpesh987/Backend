@@ -44,6 +44,10 @@ func GetProfile(c *fiber.Ctx) error {
 		CollegeName    string   `json:"college_name"`
 		Skills         []string `json:"skills"`
 		Interests      []string `json:"interests"`
+		Badges         []struct {
+			BadgeID   int    `json:"badge_id"`
+			BadgeName string `json:"badge_name"`
+		} `json:"badges"`
 	}{}
 
 	if err := db.Raw(profileQuery, userID).Scan(&profile).Error; err != nil {
@@ -71,6 +75,21 @@ func GetProfile(c *fiber.Ctx) error {
 		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch user interests", err)
 	}
 	profile.Interests = interests
+
+	// Fetch user badges (badge_id and badge_name)
+	badgeQuery := `SELECT ub.badge_id, b.badge_name 
+                   FROM user_badges ub
+                   JOIN badges b ON ub.badge_id = b.badge_id
+                   WHERE ub.user_id = ?`
+
+	var badges []struct {
+		BadgeID   int    `json:"badge_id"`
+		BadgeName string `json:"badge_name"`
+	}
+	if err := db.Raw(badgeQuery, userID).Scan(&badges).Error; err != nil {
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch user badges", err)
+	}
+	profile.Badges = badges
 
 	return helpers.HandleSuccess(c, fiber.StatusOK, "User profile retrieved successfully", profile)
 }
