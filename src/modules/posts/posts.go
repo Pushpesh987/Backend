@@ -278,6 +278,14 @@ func CreateLike(c *fiber.Ctx) error {
 		return helpers.HandleError(c, fiber.StatusNotFound, "Post not found", err)
 	}
 
+	var existingLike models.Like
+	if err := db.Where("user_id = ? AND post_id = ?", userID, req.PostID).First(&existingLike).Error; err == nil {
+		if err := db.Where("user_id = ? AND post_id = ?", userID, req.PostID).Delete(&models.Like{}).Error; err != nil {
+			return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to remove like", err)
+		}
+		return helpers.HandleSuccess(c, fiber.StatusOK, "Like removed successfully", nil)
+	}
+
 	like := models.Like{
 		UserID: uuid.MustParse(userID),
 		PostID: uuid.MustParse(req.PostID),
@@ -288,6 +296,7 @@ func CreateLike(c *fiber.Ctx) error {
 
 	return helpers.HandleSuccess(c, fiber.StatusCreated, "Like created successfully", nil)
 }
+
 
 func CreateShare(c *fiber.Ctx) error {
 	db := database.DB
