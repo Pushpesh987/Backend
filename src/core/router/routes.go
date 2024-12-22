@@ -12,13 +12,16 @@ import (
 	"Backend/src/modules/notifications"
 	"Backend/src/modules/posts"
 	"Backend/src/modules/questions"
+	"log"
+
 	// "Backend/src/modules/communities"
 	"Backend/src/modules/users"
 	"fmt"
 	"sort"
-	"github.com/gofiber/websocket/v2"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/websocket/v2"
 )
 
 func InitialiseAndSetupRoutes(app *fiber.App) {
@@ -105,9 +108,13 @@ func setupAPIV1Routes(router fiber.Router) {
 	communityGroup.Post("/:id/leave", middleware.Protected(), communities.LeaveCommunity)
 	communityGroup.Get("/user/joined", middleware.Protected(), communities.GetUserCommunities)
 	communityGroup.Get("/:id/messages", middleware.Protected(), communities.GetCommunityMessages)
-	communityGroup.Post("/:id/messages", middleware.Protected(), messages.SendMessage)
-	communityGroup.Get("/:id/messages/ws", middleware.Protected(), messages.WebSocketHandler)
-
+	// communityGroup.Post("/:id/messages", middleware.Protected(), messages.SendMessage)
+	communityGroup.Get("/:id/messages/ws", func(c *fiber.Ctx) error {
+		log.Println("Request for WebSocket upgrade received")
+		return messages.WebSocketHandler(c)
+	})
+	communityGroup.Get("/:id/messages/ws/conn", websocket.New(messages.WebSocketConnHandler)) 
+	
 	iotlogsGroup.Post("/",iotlogs.CreateIotLog)
 	iotlogsGroup.Get("/",middleware.Protected(),iotlogs.GetIotLogs)
 

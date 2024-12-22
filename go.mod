@@ -29,6 +29,7 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.0.5 // indirect
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-playground/validator/v10 v10.22.1
 	github.com/gofiber/contrib/jwt v1.0.10
 	github.com/gofiber/fiber v1.14.6
