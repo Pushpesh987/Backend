@@ -173,11 +173,17 @@ func GetEnhancedFeedPosts(userID uuid.UUID, connections, excludedPosts []string,
 
 	// Query for posts from connections, now including username and profile_pic_url
 	query := db.Table("posts").
-		Select(`posts.id, posts.user_id, posts.content, posts.media_url, 
-                posts.likes_count, posts.comments_count, posts.created_at, 
-                users.username, users.profile_pic_url`).
-		Joins("JOIN users ON posts.user_id = users.id").
-		Where("posts.user_id IN (?)", connections)
+    Select(`posts.id, posts.user_id, posts.content, posts.media_url, 
+            COUNT(DISTINCT likes.user_id) AS likes_count, 
+            COUNT(DISTINCT comments.user_id) AS comments_count, 
+            posts.created_at, 
+            users.username, users.profile_pic_url`).
+    Joins("JOIN users ON posts.user_id = users.id").
+    Joins("LEFT JOIN likes ON likes.post_id = posts.id").
+    Joins("LEFT JOIN comments ON comments.post_id = posts.id").
+    Where("posts.user_id IN (?)", connections).
+    Group("posts.id, posts.user_id, posts.content, posts.media_url, posts.created_at, users.username, users.profile_pic_url")
+
 
 	// Exclude certain posts
 	if len(excludedPosts) > 0 {
@@ -194,19 +200,26 @@ func GetEnhancedFeedPosts(userID uuid.UUID, connections, excludedPosts []string,
 	var tagsAndInterestsPosts []models.Post
 	if len(combinedTagsAndInterests) > 0 {
 		tagsAndInterestsQuery := db.Table("posts").
-			Select(`posts.id, posts.user_id, posts.content, posts.media_url, 
-                    posts.likes_count, posts.comments_count, posts.created_at, 
-                    users.username, users.profile_pic_url`).
-			Where("posts.id NOT IN (?)", excludedPosts).
-			Where("posts.id IN (?)",
-				db.Table("post_tags").
-					Joins("JOIN tags ON post_tags.tag_id = tags.id").
-					Where("tags.tag IN (?)", combinedTagsAndInterests).
-					Select("post_tags.post_id")).
-			Joins("JOIN users ON posts.user_id = users.id").
-			Order("posts.created_at DESC").
-			Limit(limit).
-			Offset(offset)
+    Select(`posts.id, posts.user_id, posts.content, posts.media_url, 
+            COUNT(DISTINCT likes.user_id) AS likes_count, 
+            COUNT(DISTINCT comments.user_id) AS comments_count, 
+            posts.created_at, 
+            users.username, users.profile_pic_url`).
+    Where("posts.id NOT IN (?)", excludedPosts).
+    Where("posts.id IN (?)",
+        db.Table("post_tags").
+            Joins("JOIN tags ON post_tags.tag_id = tags.id").
+            Where("tags.tag IN (?)", combinedTagsAndInterests).
+            Select("post_tags.post_id")).
+    Joins("JOIN users ON posts.user_id = users.id").
+    Joins("LEFT JOIN likes ON likes.post_id = posts.id").
+    Joins("LEFT JOIN comments ON comments.post_id = posts.id").
+    Group("posts.id, posts.user_id, posts.content, posts.media_url, posts.created_at, users.username, users.profile_pic_url").
+    Order("posts.created_at DESC").
+    Limit(limit).
+    Offset(offset)
+
+
 
 		if err := tagsAndInterestsQuery.Find(&tagsAndInterestsPosts).Error; err != nil {
 			return nil, fmt.Errorf("failed to fetch posts matching tags: %w", err)
@@ -217,14 +230,21 @@ func GetEnhancedFeedPosts(userID uuid.UUID, connections, excludedPosts []string,
 	var weightedPosts []models.Post
 	if len(weightedPostIDs) > 0 {
 		weightedQuery := db.Table("posts").
-			Select(`posts.id, posts.user_id, posts.content, posts.media_url, 
-                    posts.likes_count, posts.comments_count, posts.created_at, 
-                    users.username, users.profile_pic_url`).
-			Where("posts.id IN (?)", weightedPostIDs).
-			Joins("JOIN users ON posts.user_id = users.id").
-			Order("posts.created_at DESC").
-			Limit(limit).
-			Offset(offset)
+    Select(`posts.id, posts.user_id, posts.content, posts.media_url, 
+            COUNT(DISTINCT likes.user_id) AS likes_count, 
+            COUNT(DISTINCT comments.user_id) AS comments_count, 
+            posts.created_at, 
+            users.username, users.profile_pic_url`).
+    Where("posts.id IN (?)", weightedPostIDs).
+    Joins("JOIN users ON posts.user_id = users.id").
+    Joins("LEFT JOIN likes ON likes.post_id = posts.id").
+    Joins("LEFT JOIN comments ON comments.post_id = posts.id").
+    Group("posts.id, posts.user_id, posts.content, posts.media_url, posts.created_at, users.username, users.profile_pic_url").
+    Order("posts.created_at DESC").
+    Limit(limit).
+    Offset(offset)
+
+
 
 		if err := weightedQuery.Find(&weightedPosts).Error; err != nil {
 			return nil, fmt.Errorf("failed to fetch weighted posts: %w", err)
