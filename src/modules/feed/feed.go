@@ -19,6 +19,8 @@ import (
 type FeedPost struct {
 	ID              string    `json:"id"`
 	UserID          string    `json:"user_id"`
+	Username        string    `json:"username"`
+	ProfilePicURL   string    `json:"profile_pic_url"`
 	Content         string    `json:"content"`
 	MediaURL        string    `json:"media_url"`
 	LikesCount      int       `json:"likes_count"`
@@ -27,6 +29,7 @@ type FeedPost struct {
 	CreatedAt       time.Time `json:"created_at"`
 	PopularityScore float64   `json:"popularity_score"`
 }
+
 
 func FetchFeed(c *fiber.Ctx) error {
 	userId, ok := c.Locals("user_id").(string)
@@ -119,6 +122,7 @@ func GetEnhancedFeedPosts(userID uuid.UUID, connections, excludedPosts []string,
 
 	var posts []models.Post
 
+	// Fetch user tags based on their posts
 	var userTags []string
 	if err := db.Table("post_tags").
 		Joins("JOIN tags ON post_tags.tag_id = tags.id").
@@ -128,6 +132,7 @@ func GetEnhancedFeedPosts(userID uuid.UUID, connections, excludedPosts []string,
 		return nil, fmt.Errorf("failed to fetch user tags: %w", err)
 	}
 
+	// Fetch user interests
 	var userInterests []string
 	if err := db.Table("user_interests").
 		Joins("JOIN interests ON user_interests.interest_id = interests.interest_id").
@@ -137,10 +142,12 @@ func GetEnhancedFeedPosts(userID uuid.UUID, connections, excludedPosts []string,
 		return nil, fmt.Errorf("failed to fetch user interests: %w", err)
 	}
 
+	// Combine tags and interests for matching posts
 	combinedTagsAndInterests := append(userTags, userInterests...)
-	log.Printf("combined tags abd interests: %v", combinedTagsAndInterests)
-	var mostLikedPostIDs, mostCommentedPostIDs []string
+	log.Printf("Combined tags and interests: %v", combinedTagsAndInterests)
 
+	// Fetch most liked posts
+	var mostLikedPostIDs []string
 	if err := db.Table("likes").
 		Select("post_id").
 		Group("post_id").
@@ -150,6 +157,8 @@ func GetEnhancedFeedPosts(userID uuid.UUID, connections, excludedPosts []string,
 		return nil, fmt.Errorf("failed to fetch most liked posts: %w", err)
 	}
 
+	// Fetch most commented posts
+	var mostCommentedPostIDs []string
 	if err := db.Table("comments").
 		Select("post_id").
 		Group("post_id").
@@ -159,54 +168,61 @@ func GetEnhancedFeedPosts(userID uuid.UUID, connections, excludedPosts []string,
 		return nil, fmt.Errorf("failed to fetch most commented posts: %w", err)
 	}
 
+	// Combine liked and commented posts for weighted ranking
 	weightedPostIDs := append(mostLikedPostIDs, mostCommentedPostIDs...)
 
+	// Query for posts from connections, now including username and profile_pic_url
 	query := db.Table("posts").
-		Where("user_id IN (?)", connections)
+		Select(`posts.id, posts.user_id, posts.content, posts.media_url, 
+                posts.likes_count, posts.comments_count, posts.created_at, 
+                users.username, users.profile_pic_url`).
+		Joins("JOIN users ON posts.user_id = users.id").
+		Where("posts.user_id IN (?)", connections)
 
+	// Exclude certain posts
 	if len(excludedPosts) > 0 {
-		query = query.Where("id NOT IN (?)", excludedPosts)
+		query = query.Where("posts.id NOT IN (?)", excludedPosts)
 	}
 
-	query = query.Order("created_at DESC").
-		Limit(limit).
-		Offset(offset)
-
+	// Fetch posts from connections
 	var connectionPosts []models.Post
-	if err := query.Find(&connectionPosts).Error; err != nil {
+	if err := query.Order("posts.created_at DESC").Limit(limit).Offset(offset).Find(&connectionPosts).Error; err != nil {
 		return nil, fmt.Errorf("failed to fetch posts from connections: %w", err)
 	}
-	log.Printf("len of combined tags %v", len(combinedTagsAndInterests))
 
+	// Query for posts matching user tags and interests
 	var tagsAndInterestsPosts []models.Post
 	if len(combinedTagsAndInterests) > 0 {
 		tagsAndInterestsQuery := db.Table("posts").
-			Where("id NOT IN (?)", excludedPosts).
-			Where("id IN (?)",
+			Select(`posts.id, posts.user_id, posts.content, posts.media_url, 
+                    posts.likes_count, posts.comments_count, posts.created_at, 
+                    users.username, users.profile_pic_url`).
+			Where("posts.id NOT IN (?)", excludedPosts).
+			Where("posts.id IN (?)",
 				db.Table("post_tags").
 					Joins("JOIN tags ON post_tags.tag_id = tags.id").
 					Where("tags.tag IN (?)", combinedTagsAndInterests).
 					Select("post_tags.post_id")).
-			Order("created_at DESC").
+			Joins("JOIN users ON posts.user_id = users.id").
+			Order("posts.created_at DESC").
 			Limit(limit).
 			Offset(offset)
-		sqlQuery := db.ToSQL(func(tx *gorm.DB) *gorm.DB {
-			return tagsAndInterestsQuery
-		})
-
-		fmt.Printf("Generated SQL Query: %s\n", sqlQuery)
 
 		if err := tagsAndInterestsQuery.Find(&tagsAndInterestsPosts).Error; err != nil {
 			return nil, fmt.Errorf("failed to fetch posts matching tags: %w", err)
 		}
 	}
 
-	log.Printf("tags abnd interest posts : %v", tagsAndInterestsPosts)
+	// Query for posts based on weighted IDs (most liked and most commented)
 	var weightedPosts []models.Post
 	if len(weightedPostIDs) > 0 {
 		weightedQuery := db.Table("posts").
-			Where("id IN (?)", weightedPostIDs).
-			Order("created_at DESC").
+			Select(`posts.id, posts.user_id, posts.content, posts.media_url, 
+                    posts.likes_count, posts.comments_count, posts.created_at, 
+                    users.username, users.profile_pic_url`).
+			Where("posts.id IN (?)", weightedPostIDs).
+			Joins("JOIN users ON posts.user_id = users.id").
+			Order("posts.created_at DESC").
 			Limit(limit).
 			Offset(offset)
 
@@ -215,13 +231,18 @@ func GetEnhancedFeedPosts(userID uuid.UUID, connections, excludedPosts []string,
 		}
 	}
 
+	// Combine all post results
 	posts = append(posts, connectionPosts...)
 	posts = append(posts, tagsAndInterestsPosts...)
 	posts = append(posts, weightedPosts...)
+
+	// Deduplicate posts based on ID (avoid duplication across categories)
 	posts = deduplicatePosts(posts)
 	log.Printf("Retrieved filtered posts: %+v\n", posts)
+
 	return posts, nil
 }
+
 
 func deduplicatePosts(posts []models.Post) []models.Post {
 	seen := make(map[string]bool)
@@ -241,6 +262,7 @@ func deduplicatePosts(posts []models.Post) []models.Post {
 func CalculatePopularityAndRetrieveTags(posts []models.Post) []FeedPost {
 	log.Println("Calculating popularity scores and retrieving tags")
 	feedPosts := make([]FeedPost, len(posts))
+
 	for i, post := range posts {
 		tags, err := RetrieveTagsForPost(post.ID.String())
 		if err != nil {
@@ -249,11 +271,15 @@ func CalculatePopularityAndRetrieveTags(posts []models.Post) []FeedPost {
 		if len(tags) == 0 {
 			tags = []string{}
 		}
+
 		score := CalculateScore(post.LikesCount, post.CommentsCount, post.CreatedAt)
 		log.Printf("Post ID: %s, Score: %.2f\n", post.ID.String(), score)
+
 		feedPosts[i] = FeedPost{
 			ID:              post.ID.String(),
 			UserID:          post.UserID.String(),
+			Username:        post.Username,
+			ProfilePicURL:   post.ProfilePicURL,
 			Content:         post.Content,
 			MediaURL:        post.MediaURL,
 			LikesCount:      post.LikesCount,
