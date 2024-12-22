@@ -1,230 +1,226 @@
 package messages
 
 import (
+	"Backend/src/core/config"
 	"Backend/src/core/database"
 	"Backend/src/core/helpers"
 	"Backend/src/core/models"
-	"bufio"
-	"bytes"
-	"io/ioutil"
+	"fmt"
 	"log"
-	"net/http"
-	"net/url"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/websocket/v2"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
-	"github.com/valyala/fasthttp"
 )
 
-// WebSocket upgrader for upgrading HTTP requests to WebSocket
-var upgrader = websocket.Upgrader{
-    CheckOrigin: func(r *http.Request) bool {
-        return true
-    },
-}
-
-// A map to store WebSocket connections for each community (chat room)
 var communityConnections = make(map[string][]*websocket.Conn)
 var mu sync.Mutex
 
-// Custom adapter to wrap fasthttp.Response and make it compatible with http.ResponseWriter
-type ResponseAdapter struct {
-    Response *fiber.Response
-}
-
-func (r *ResponseAdapter) Header() http.Header {
-	headers := make(http.Header)
-	r.Response.Header.VisitAll(func(key, value []byte) {
-		headers[string(key)] = append(headers[string(key)], string(value))
-	})
-	return headers
-}
-
-func (r *ResponseAdapter) Write(p []byte) (n int, err error) {
-    buf := bufio.NewWriter(r.Response.BodyWriter())
-    n, err = buf.Write(p) 
-    if err != nil {
-        return n, err
-    }
-    err = buf.Flush()  
-    return n, err
-}
-
-
-func (r *ResponseAdapter) WriteHeader(statusCode int) {
-	r.Response.SetStatusCode(statusCode)
-}
-
-type RequestAdapter struct {
-    Request *fasthttp.Request
-}
-
-func (r *RequestAdapter) Method() string {
-    return string(r.Request.Header.Method()) // Convert []byte to string
-}
-
-func (r *RequestAdapter) URL() *url.URL {
-    parsedURL := "http://" + string(r.Request.Header.Peek("Host")) + string(r.Request.URI().Path())
-    u, err := url.Parse(parsedURL)
-    if err != nil {
-        return nil
-    }
-    return u
-}
-
-func (r *RequestAdapter) Header() http.Header {
-    headers := make(http.Header)
-    r.Request.Header.VisitAll(func(key, value []byte) {
-        headers[string(key)] = append(headers[string(key)], string(value))
-    })
-    return headers
-}
-
-func (r *RequestAdapter) Body() []byte {
-    return r.Request.Body()
-}
-
 func WebSocketHandler(c *fiber.Ctx) error {
-    req := c.Request()
-    res := c.Response()
+    log.Println("Starting WebSocketHandler")
 
-    // Manually create an *http.Request using the fasthttp request
-    httpReq := &http.Request{
-        Method:     string(req.Header.Method()),
-        Header:     make(http.Header),
-        Body:       ioutil.NopCloser(bytes.NewReader(req.Body())),
-        RemoteAddr: c.IP(),
-    }
-
-    // Copy headers from fasthttp.Request to *http.Request
-    req.Header.VisitAll(func(key, value []byte) {
-        httpReq.Header.Add(string(key), string(value))
-    })
-
-    // Create an adapter for the fasthttp.Response (this will be used as http.ResponseWriter)
-    httpRes := &ResponseAdapter{
-        Response: res,
-    }
-
-    // WebSocket upgrader
-    upgrader := websocket.Upgrader{
-        CheckOrigin: func(r *http.Request) bool {
-            return true // Allow all origins, adjust as needed
-        },
-    }
-
-    // Upgrade the connection to WebSocket
-    conn, err := upgrader.Upgrade(httpRes, httpReq, nil)
+    
+    userID, err := ExtractUserIDFromJWT(c)
     if err != nil {
-        return c.Status(fiber.StatusInternalServerError).SendString("Failed to upgrade connection")
+        log.Println("Error extracting user_id:", err)
+        return c.Status(fiber.StatusUnauthorized).SendString("Invalid token or missing Authorization header")
     }
-    defer conn.Close()
 
-    // Store the WebSocket connection in the map for the specific community
-    communityID := c.Params("id") // Retrieve community ID from URL params
+    
+    c.Locals("user_id", userID)
+
+    
+    if websocket.IsWebSocketUpgrade(c) {
+        return c.Next() 
+    }
+
+    return fiber.ErrUpgradeRequired
+}
+
+func ExtractUserIDFromJWT(c *fiber.Ctx) (string, error) {
+    authHeader := c.Get("Authorization")
+    if authHeader == "" {
+        log.Println("Authorization header missing")
+        return "", fmt.Errorf("authorization header missing")
+    }
+
+    if len(authHeader) < len("Bearer ") {
+        log.Println("Authorization header is not in the correct format")
+        return "", fmt.Errorf("invalid Authorization format")
+    }
+
+    tokenString := authHeader[len("Bearer "):]
+
+    userID, err := validateJWT(tokenString) 
+    if err != nil {
+        log.Println("Invalid token:", err)
+        return "", fmt.Errorf("invalid token: %v", err)
+    }
+
+    return userID, nil
+}
+
+func WebSocketConnHandler(conn *websocket.Conn) {
+    userIDStr := conn.Query("user_id")
+    if userIDStr == "" {
+        log.Println("user_id missing in WebSocket connection")
+        return
+    }
+
+    log.Println("user_id from query:", userIDStr)
+
+    userID, err := uuid.Parse(userIDStr)
+    if err != nil {
+        log.Println("Error parsing userID:", err)
+        return
+    }
+
+    log.Println("User ID parsed successfully:", userID)
+
+    communityIDStr := conn.Params("id")
+    communityID, err := strconv.Atoi(communityIDStr)
+    if err != nil {
+        log.Println("Error converting communityID to int:", err)
+        return
+    }
+
+    log.Println("WebSocket connection established for community:", communityID)
+
     mu.Lock()
-    communityConnections[communityID] = append(communityConnections[communityID], conn)
+    communityConnections[communityIDStr] = append(communityConnections[communityIDStr], conn)
     mu.Unlock()
 
-    // Handle WebSocket communication
     for {
-        msgType, p, err := conn.ReadMessage()
+        msgType, msg, err := conn.ReadMessage()
         if err != nil {
             log.Println("Error reading message:", err)
             break
         }
 
-        // Send the received message back to all connected clients in the same community
+        log.Printf("Message received: %s\n", string(msg))
+
+        message := &models.Message{
+            CommunityID: communityID, 
+            UserID:      userID,       
+            CreatedAt:   time.Now(),
+        }
+
+        err = SendMessage(message)
+        if err != nil {
+            log.Println("Error saving message to database:", err)
+        }
+
         mu.Lock()
-        for _, otherConn := range communityConnections[communityID] {
-            err := otherConn.WriteMessage(msgType, p)
-            if err != nil {
+        for _, otherConn := range communityConnections[communityIDStr] {
+            if otherConn == conn {
+                continue 
+            }
+            if err := otherConn.WriteMessage(msgType, msg); err != nil {
                 log.Println("Error sending message:", err)
-                continue
             }
         }
         mu.Unlock()
     }
 
-    return nil
-}
-
-func SendMessage(c *fiber.Ctx) error {
-    db := database.DB
-
-    userIDStr, ok := c.Locals("user_id").(string)
-    if !ok || userIDStr == "" {
-        return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid or missing user_id", nil)
-    }
-
-    userID, err := uuid.Parse(userIDStr)
-    if err != nil {
-        return helpers.HandleError(c, fiber.StatusUnauthorized, "Invalid user ID format", err)
-    }
-
-    communityIDStr := c.Params("id")
-    communityID, err := strconv.Atoi(communityIDStr)
-    if err != nil {
-        return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid community ID", err)
-    }
-
-    message := new(models.Message)
-
-    if err := c.BodyParser(message); err != nil {
-        return helpers.HandleError(c, fiber.StatusBadRequest, "Invalid input data", err)
-    }
-
-    message.UserID = userID
-    message.CommunityID = communityID
-    message.CreatedAt = time.Now()
-
-    if result := db.Create(&message); result.Error != nil {
-        return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to send message", result.Error)
-    }
-
+    
     mu.Lock()
-    for _, conn := range communityConnections[communityIDStr] {
-        err := conn.WriteJSON(message)
-        if err != nil {
-            log.Println("Error sending message:", err)
-            continue
+    for i, ws := range communityConnections[communityIDStr] {
+        if ws == conn {
+            communityConnections[communityIDStr] = append(communityConnections[communityIDStr][:i], communityConnections[communityIDStr][i+1:]...)
+            break
         }
     }
     mu.Unlock()
 
-    return helpers.HandleSuccess(c, fiber.StatusCreated, "Message sent successfully", message)
+    log.Println("WebSocket connection closed for community:", communityID)
+}
+
+
+func validateJWT(tokenString string) (string, error) {
+    log.Println("Validating JWT token")
+    jwtSecret := config.Config("JWT_SECRET")
+    if jwtSecret == "" {
+        log.Println("JWT_SECRET is not set")
+        return "", fmt.Errorf("JWT_SECRET is not set")
+    }
+
+    token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+        if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+            log.Println("Unexpected signing method:", token.Header["alg"])
+            return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+        }
+        return []byte(jwtSecret), nil
+    })
+
+    if err != nil {
+        log.Println("Error parsing token:", err)
+        return "", err
+    }
+
+    if !token.Valid {
+        log.Println("Invalid or expired token")
+        return "", fmt.Errorf("invalid or expired token")
+    }
+
+    log.Println("Token is valid")
+
+    // Extract user_id from the token claims
+    claims, ok := token.Claims.(jwt.MapClaims)
+    if !ok {
+        log.Println("Error extracting claims from token")
+        return "", fmt.Errorf("error extracting claims from token")
+    }
+
+    userIDClaim, ok := claims["user_id"].(string)
+    if !ok {
+        log.Println("user_id not found in token claims")
+        return "", fmt.Errorf("user_id not found in token claims")
+    }
+
+    return userIDClaim, nil
+}
+
+func SendMessage(message *models.Message) error {
+    db := database.DB
+
+    log.Printf("Saving message to database: %+v\n", message)
+
+    if result := db.Create(&message); result.Error != nil {
+        log.Println("Error saving message to database:", result.Error)
+        return result.Error
+    }
+
+    log.Println("Message saved to database:", message)
+
+    return nil
 }
 
 func GetNotifications(c *fiber.Ctx) error {
-    db := database.DB
-    userID := c.Locals("user_id").(string)
+	db := database.DB
+	userID := c.Locals("user_id").(string)
 
-    // Ensure user_id exists in the context
-    if userID == "" {
-        return helpers.HandleError(c, fiber.StatusUnauthorized, "Unauthorized: missing user_id", nil)
-    }
+	if userID == "" {
+		return helpers.HandleError(c, fiber.StatusUnauthorized, "Unauthorized: missing user_id", nil)
+	}
 
-    // Define a struct to hold the notifications
-    type NotificationResponse struct {
-        Message   string    `json:"message"`
-        CreatedAt time.Time `json:"created_at"`
-        Category  string    `json:"category"`
-    }
+	type NotificationResponse struct {
+		Message   string    `json:"message"`
+		CreatedAt time.Time `json:"created_at"`
+		Category  string    `json:"category"`
+	}
 
-    // Fetch notifications where the user_id matches
-    var notifications []NotificationResponse
-    if err := db.Table("notifications").
-        Select("message, created_at, category").
-        Where("user_id = ?", userID).
-        Order("created_at desc"). // Optional: To show the most recent notifications first
-        Scan(&notifications).Error; err != nil {
-        return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch notifications", err)
-    }
+	var notifications []NotificationResponse
+	if err := db.Table("notifications").
+		Select("message, created_at, category").
+		Where("user_id = ?", userID).
+		Order("created_at desc").
+		Scan(&notifications).Error; err != nil {
+		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch notifications", err)
+	}
 
-    // Return the fetched notifications
-    return helpers.HandleSuccess(c, fiber.StatusOK, "Notifications fetched successfully", notifications)
+	return helpers.HandleSuccess(c, fiber.StatusOK, "Notifications fetched successfully", notifications)
 }
