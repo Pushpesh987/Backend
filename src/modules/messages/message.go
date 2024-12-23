@@ -106,6 +106,7 @@ func WebSocketConnHandler(conn *websocket.Conn) {
         message := &models.Message{
             CommunityID: communityID, 
             UserID:      userID,       
+            Message:     string(msg),
             CreatedAt:   time.Now(),
         }
 
