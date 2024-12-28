@@ -64,6 +64,83 @@ func ExtractUserIDFromJWT(c *fiber.Ctx) (string, error) {
     return userID, nil
 }
 
+// func WebSocketConnHandler(conn *websocket.Conn) {
+//     userIDStr := conn.Query("user_id")
+//     if userIDStr == "" {
+//         log.Println("user_id missing in WebSocket connection")
+//         return
+//     }
+
+//     log.Println("user_id from query:", userIDStr)
+
+//     userID, err := uuid.Parse(userIDStr)
+//     if err != nil {
+//         log.Println("Error parsing userID:", err)
+//         return
+//     }
+
+//     log.Println("User ID parsed successfully:", userID)
+
+//     communityIDStr := conn.Params("id")
+//     communityID, err := strconv.Atoi(communityIDStr)
+//     if err != nil {
+//         log.Println("Error converting communityID to int:", err)
+//         return
+//     }
+
+//     log.Println("WebSocket connection established for community:", communityID)
+
+//     mu.Lock()
+//     communityConnections[communityIDStr] = append(communityConnections[communityIDStr], conn)
+//     mu.Unlock()
+
+//     for {
+//         msgType, msg, err := conn.ReadMessage()
+//         if err != nil {
+//             log.Println("Error reading message:", err)
+//             break
+//         }
+
+//         log.Printf("Message received: %s\n", string(msg))
+
+//         message := &models.Message{
+//             CommunityID: communityID, 
+//             UserID:      userID,       
+//             Message:     string(msg),
+//             CreatedAt:   time.Now(),
+//         }
+
+//         err = SendMessage(message)
+//         if err != nil {
+//             log.Println("Error saving message to database:", err)
+//         }
+
+//         mu.Lock()
+//         for _, otherConn := range communityConnections[communityIDStr] {
+//             if otherConn == conn {
+//                 continue 
+//             }
+//             if err := otherConn.WriteMessage(msgType, msg); err != nil {
+//                 log.Println("Error sending message:", err)
+//             }
+//         }
+//         mu.Unlock()
+//     }
+
+    
+//     mu.Lock()
+//     for i, ws := range communityConnections[communityIDStr] {
+//         if ws == conn {
+//             communityConnections[communityIDStr] = append(communityConnections[communityIDStr][:i], communityConnections[communityIDStr][i+1:]...)
+//             break
+//         }
+//     }
+//     mu.Unlock()
+
+//     log.Println("WebSocket connection closed for community:", communityID)
+// }
+
+
 func WebSocketConnHandler(conn *websocket.Conn) {
     userIDStr := conn.Query("user_id")
     if userIDStr == "" {
@@ -71,15 +148,11 @@ func WebSocketConnHandler(conn *websocket.Conn) {
         return
     }
 
-    log.Println("user_id from query:", userIDStr)
-
     userID, err := uuid.Parse(userIDStr)
     if err != nil {
         log.Println("Error parsing userID:", err)
         return
     }
-
-    log.Println("User ID parsed successfully:", userID)
 
     communityIDStr := conn.Params("id")
     communityID, err := strconv.Atoi(communityIDStr)
@@ -88,11 +161,11 @@ func WebSocketConnHandler(conn *websocket.Conn) {
         return
     }
 
-    log.Println("WebSocket connection established for community:", communityID)
-
     mu.Lock()
     communityConnections[communityIDStr] = append(communityConnections[communityIDStr], conn)
     mu.Unlock()
+
+    defer conn.Close()
 
     for {
         msgType, msg, err := conn.ReadMessage()
@@ -101,33 +174,32 @@ func WebSocketConnHandler(conn *websocket.Conn) {
             break
         }
 
-        log.Printf("Message received: %s\n", string(msg))
-
         message := &models.Message{
-            CommunityID: communityID, 
-            UserID:      userID,       
+            CommunityID: communityID,
+            UserID:      userID,
             Message:     string(msg),
             CreatedAt:   time.Now(),
         }
 
-        err = SendMessage(message)
-        if err != nil {
-            log.Println("Error saving message to database:", err)
-        }
+        go func() {
+            err := SendMessage(message)
+            if err != nil {
+                log.Println("Error saving message to database:", err)
+            }
+        }()
 
         mu.Lock()
         for _, otherConn := range communityConnections[communityIDStr] {
             if otherConn == conn {
-                continue 
+                continue
             }
             if err := otherConn.WriteMessage(msgType, msg); err != nil {
-                log.Println("Error sending message:", err)
+                log.Printf("Error sending message to %v: %v", otherConn.RemoteAddr(), err)
             }
         }
         mu.Unlock()
     }
 
-    
     mu.Lock()
     for i, ws := range communityConnections[communityIDStr] {
         if ws == conn {
