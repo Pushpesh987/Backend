@@ -161,13 +161,28 @@ func GetUserCommunities(c *fiber.Ctx) error {
 }
 
 func GetCommunityMessages(c *fiber.Ctx) error {
-	db := database.DB
-	communityID := c.Params("id")
+    db := database.DB
+    communityID := c.Params("id")
 
-	var messages []models.Message
-	if err := db.Where("community_id = ?", communityID).Find(&messages).Error; err != nil {
-		return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch messages", err)
-	}
+    type MessageWithUser struct {
+        MessageID   uint   `json:"message_id"`
+        UserID      uint   `json:"user_id"`
+        Username    string `json:"username"`
+        Message     string `json:"message"`
+        CreatedAt   string `json:"created_at"`
+    }
 
-	return helpers.HandleSuccess(c, fiber.StatusOK, "Messages fetched successfully", messages)
+    var messages []MessageWithUser
+    query := `
+        SELECT m.id AS message_id, m.user_id, u.username, m.message, m.created_at
+        FROM messages m
+        JOIN users u ON m.user_id = u.id
+        WHERE m.community_id = ?
+        ORDER BY m.created_at DESC
+    `
+    if err := db.Raw(query, communityID).Scan(&messages).Error; err != nil {
+        return helpers.HandleError(c, fiber.StatusInternalServerError, "Failed to fetch messages", err)
+    }
+
+    return helpers.HandleSuccess(c, fiber.StatusOK, "Messages fetched successfully", messages)
 }
