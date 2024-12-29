@@ -174,6 +174,9 @@ func WebSocketConnHandler(conn *websocket.Conn) {
             break
         }
 
+        // Print the received message here
+        log.Printf("Received message from user %s: %s", userID, string(msg))
+
         message := &models.Message{
             CommunityID: communityID,
             UserID:      userID,
