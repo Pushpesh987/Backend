@@ -5,6 +5,7 @@ import (
 	"Backend/src/core/database"
 	"Backend/src/core/helpers"
 	"Backend/src/core/models"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
@@ -136,6 +137,93 @@ func ExtractUserIDFromJWT(c *fiber.Ctx) (string, error) {
 //     log.Println("WebSocket connection closed for community:", communityID)
 // }
 
+// func WebSocketConnHandler(conn *websocket.Conn) {
+
+// 	userIDStr := conn.Query("user_id")
+// 	if userIDStr == "" {
+// 		log.Println("user_id missing in WebSocket connection")
+// 		return
+// 	}
+
+// 	userID, err := uuid.Parse(userIDStr)
+// 	if err != nil {
+// 		log.Printf("Error parsing userID: %v", err)
+// 		return
+// 	}
+// 	log.Printf("User ID: %v", userID)
+
+// 	communityIDStr := conn.Params("id")
+// 	communityID, err := strconv.Atoi(communityIDStr)
+// 	if err != nil {
+// 		log.Printf("Error converting communityID to int: %v", err)
+// 		return
+// 	}
+// 	log.Printf("Community ID: %v", communityID)
+
+// 	mu.Lock()
+// 	log.Printf("Adding connection to community %v", communityIDStr)
+// 	communityConnections[communityIDStr] = append(communityConnections[communityIDStr], conn)
+// 	mu.Unlock()
+
+// 	defer func() {
+// 		log.Printf("Closing WebSocket connection for community: %v", communityID)
+// 		conn.Close()
+// 	}()
+
+// 	for {
+// 		msgType, msg, err := conn.ReadMessage()
+// 		if err != nil {
+// 			log.Printf("Error reading message: %v", err)
+// 			break
+// 		}
+
+// 		log.Printf("Received message from user %v in community %v: Type: %v, Message: %s", userID, communityID, msgType, string(msg))
+
+// 		message := &models.Message{
+// 			CommunityID: communityID,
+// 			UserID:      userID,
+// 			Message:     string(msg),
+// 			CreatedAt:   time.Now(),
+// 		}
+// 		log.Printf("Prepared message for database: %+v", message)
+
+// 		go func() {
+// 			err := SendMessage(message)
+// 			if err != nil {
+// 				log.Printf("Error saving message to database: %v", err)
+// 			} else {
+// 				log.Printf("Message saved to database: %+v", message)
+// 			}
+// 		}()
+
+// 		mu.Lock()
+// 		log.Printf("Broadcasting message to other connections in community %v", communityIDStr)
+// 		for _, otherConn := range communityConnections[communityIDStr] {
+// 			if otherConn == conn {
+// 				continue
+// 			}
+// 			if err := otherConn.WriteMessage(msgType, msg); err != nil {
+// 				log.Printf("Error sending message to %v: %v", otherConn.RemoteAddr(), err)
+// 			} else {
+// 				log.Printf("Message sent to %v", otherConn.RemoteAddr())
+// 			}
+// 		}
+// 		mu.Unlock()
+// 	}
+
+// 	mu.Lock()
+// 	log.Printf("Removing connection from community %v", communityIDStr)
+// 	for i, ws := range communityConnections[communityIDStr] {
+// 		if ws == conn {
+// 			communityConnections[communityIDStr] = append(communityConnections[communityIDStr][:i], communityConnections[communityIDStr][i+1:]...)
+// 			break
+// 		}
+// 	}
+// 	mu.Unlock()
+
+// 	log.Printf("WebSocket connection closed for community: %v", communityID)
+// }
+
 func WebSocketConnHandler(conn *websocket.Conn) {
 	// Extract userID from the query parameters
 	userIDStr := conn.Query("user_id")
@@ -182,6 +270,13 @@ func WebSocketConnHandler(conn *websocket.Conn) {
 		// Log the received message and message type
 		log.Printf("Received message from user %v in community %v: Type: %v, Message: %s", userID, communityID, msgType, string(msg))
 
+		// Fetch the username from the database using the userID
+		username, err := GetUsernameByID(userID)
+		if err != nil {
+			log.Printf("Error fetching username: %v", err)
+			username = "Unknown" // Fallback if username can't be fetched
+		}
+
 		// Create a Message struct and save it
 		message := &models.Message{
 			CommunityID: communityID,
@@ -201,14 +296,31 @@ func WebSocketConnHandler(conn *websocket.Conn) {
 			}
 		}()
 
-		// Send the message to other connected clients in the community
+		// Broadcast the message to other connected clients in the community in JSON format
 		mu.Lock()
 		log.Printf("Broadcasting message to other connections in community %v", communityIDStr)
 		for _, otherConn := range communityConnections[communityIDStr] {
 			if otherConn == conn {
 				continue
 			}
-			if err := otherConn.WriteMessage(msgType, msg); err != nil {
+
+			// Create a JSON message to broadcast
+			broadcastMessage := map[string]interface{}{
+				"username":    username,
+				"message":     string(msg),
+				"createdAt":   message.CreatedAt,
+				"communityID": communityID,
+			}
+
+			// Convert the message to JSON
+			jsonMessage, err := json.Marshal(broadcastMessage)
+			if err != nil {
+				log.Printf("Error marshalling message to JSON: %v", err)
+				continue
+			}
+
+			// Send the JSON message to the other clients
+			if err := otherConn.WriteMessage(msgType, jsonMessage); err != nil {
 				log.Printf("Error sending message to %v: %v", otherConn.RemoteAddr(), err)
 			} else {
 				log.Printf("Message sent to %v", otherConn.RemoteAddr())
@@ -229,6 +341,18 @@ func WebSocketConnHandler(conn *websocket.Conn) {
 	mu.Unlock()
 
 	log.Printf("WebSocket connection closed for community: %v", communityID)
+}
+
+func GetUsernameByID(userID uuid.UUID) (string, error) {
+	db := database.DB
+
+	var user models.User
+	// Query your database using the userID to get the user's details
+	err := db.Where("id = ?", userID).First(&user).Error
+	if err != nil {
+		return "", fmt.Errorf("error fetching username: %v", err)
+	}
+	return user.Username, nil
 }
 
 func validateJWT(tokenString string) (string, error) {
