@@ -5,7 +5,6 @@ import (
 	"Backend/src/core/database"
 	"Backend/src/core/helpers"
 	"Backend/src/core/models"
-	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
@@ -137,13 +136,6 @@ func ExtractUserIDFromJWT(c *fiber.Ctx) (string, error) {
 //     log.Println("WebSocket connection closed for community:", communityID)
 // }
 
-type MessagePayload struct {
-	UserId      string `json:"userId"`
-	Message     string `json:"message"`
-	CommunityId int    `json:"communityId"`
-	CreatedAt   string `json:"createdAt"`
-}
-
 func WebSocketConnHandler(conn *websocket.Conn) {
 	// Extract userID from the query parameters
 	userIDStr := conn.Query("user_id")
@@ -187,19 +179,14 @@ func WebSocketConnHandler(conn *websocket.Conn) {
 			break
 		}
 
-		var payload MessagePayload
-		if err := json.Unmarshal(msg, &payload); err != nil {
-			log.Printf("Error unmarshalling message: %v", err)
-			continue
-		}
-
-		log.Printf("Received message from user %v in community %v: Type: %v, Message: %s", payload.UserId, payload.CommunityId, msgType, payload.Message)
+		// Log the received message and message type
+		log.Printf("Received message from user %v in community %v: Type: %v, Message: %s", userID, communityID, msgType, string(msg))
 
 		// Create a Message struct and save it
 		message := &models.Message{
 			CommunityID: communityID,
 			UserID:      userID,
-			Message:     payload.Message,
+			Message:     string(msg),
 			CreatedAt:   time.Now(),
 		}
 		log.Printf("Prepared message for database: %+v", message)
